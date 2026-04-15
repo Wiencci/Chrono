@@ -1,5 +1,100 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Battery, Activity, Clock, RefreshCw } from 'lucide-react';
+import { Sun, Moon, Battery, Activity, Clock, RefreshCw, Volume2, VolumeX } from 'lucide-react';
+
+// --- Sound Engine (Web Audio API) ---
+class SoundEngine {
+  ctx: AudioContext | null = null;
+  
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playTick() {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    // Quick pitch drop for a "tock" sound
+    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
+    
+    // Very short volume envelope
+    gain.gain.setValueAtTime(0.015, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+    
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.05);
+  }
+
+  playThemeChange() {
+    if (!this.ctx) return;
+    // Double digital blip
+    const playBlip = (timeOffset: number, freq: number) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, this.ctx!.currentTime + timeOffset);
+      
+      gain.gain.setValueAtTime(0.02, this.ctx!.currentTime + timeOffset);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + timeOffset + 0.1);
+      
+      const filter = this.ctx!.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 2500;
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(this.ctx!.currentTime + timeOffset);
+      osc.stop(this.ctx!.currentTime + timeOffset + 0.1);
+    };
+    
+    playBlip(0, 1200);
+    playBlip(0.08, 1600);
+  }
+
+  playToggle(toDecimal: boolean) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    
+    if (toDecimal) {
+      // Power up sound
+      osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.4);
+      filter.frequency.setValueAtTime(500, this.ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(3000, this.ctx.currentTime + 0.4);
+    } else {
+      // Power down sound
+      osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.4);
+      filter.frequency.setValueAtTime(3000, this.ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.4);
+    }
+    
+    gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.4);
+  }
+}
+
+const soundEngine = new SoundEngine();
 
 // --- Logic ---
 
@@ -69,12 +164,40 @@ export default function App() {
   const [activeTheme, setActiveTheme] = useState(THEMES[0]);
   const [displayMode, setDisplayMode] = useState<'decimal' | 'standard'>('decimal');
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  
   const clockRef = useRef<HTMLDivElement>(null);
+  const soundEnabledRef = useRef(soundEnabled);
+  const displayModeRef = useRef(displayMode);
+  const lastSecRef = useRef(-1);
+
+  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
+  useEffect(() => { displayModeRef.current = displayMode; }, [displayMode]);
 
   useEffect(() => {
     let animationFrameId: number;
     const updateTime = () => {
-      setNow(new Date());
+      const newNow = new Date();
+      setNow(newNow);
+      
+      // Handle ticking sound
+      if (soundEnabledRef.current) {
+        const currentMode = displayModeRef.current;
+        let currentSec = -1;
+        
+        if (currentMode === 'decimal') {
+          const msSinceMidnight = newNow.getHours() * 3600000 + newNow.getMinutes() * 60000 + newNow.getSeconds() * 1000 + newNow.getMilliseconds();
+          currentSec = Math.floor((msSinceMidnight / 864) % 100);
+        } else {
+          currentSec = newNow.getSeconds();
+        }
+        
+        if (lastSecRef.current !== currentSec && lastSecRef.current !== -1) {
+          soundEngine.playTick();
+        }
+        lastSecRef.current = currentSec;
+      }
+
       animationFrameId = requestAnimationFrame(updateTime);
     };
     updateTime();
@@ -86,7 +209,6 @@ export default function App() {
     const rect = clockRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    // Max rotation of 15 degrees
     setTilt({ x: -(y / rect.height) * 30, y: (x / rect.width) * 30 });
   };
 
@@ -95,17 +217,29 @@ export default function App() {
   };
 
   const toggleMode = () => {
-    setDisplayMode(prev => prev === 'decimal' ? 'standard' : 'decimal');
+    const newMode = displayMode === 'decimal' ? 'standard' : 'decimal';
+    setDisplayMode(newMode);
+    if (soundEnabled) soundEngine.playToggle(newMode === 'decimal');
+  };
+
+  const changeTheme = (theme: typeof THEMES[0]) => {
+    setActiveTheme(theme);
+    if (soundEnabled) soundEngine.playThemeChange();
+  };
+
+  const toggleSound = () => {
+    if (!soundEnabled) {
+      soundEngine.init();
+      soundEngine.playThemeChange(); // Feedback that sound is on
+    }
+    setSoundEnabled(!soundEnabled);
   };
 
   const decimalTime = getDecimalTime(now);
   const decimalDate = getDecimalDate(now);
 
-  // 0 to 10 hours. Day is 2.5 to 7.5 (equivalent to 6:00 to 18:00 standard)
   const isDay = decimalTime.hours >= 2.5 && decimalTime.hours < 7.5;
-
   const pad = (n: number) => n.toString().padStart(2, '0');
-
   const themeColor = activeTheme.hex;
 
   // SVG Ring calculations
@@ -117,7 +251,6 @@ export default function App() {
   const circMins = 2 * Math.PI * radiusMins;
   const circSecs = 2 * Math.PI * radiusSecs;
 
-  // Calculate offsets based on mode
   let offsetHours, offsetMins, offsetSecs;
   
   if (displayMode === 'decimal') {
@@ -142,21 +275,31 @@ export default function App() {
         <p className="text-xs text-neutral-500 uppercase tracking-[0.3em]">Sistema de Tempo Alternativo</p>
       </div>
 
-      {/* Theme Selector */}
-      <div className="absolute top-6 right-6 flex space-x-3 z-20">
-        {THEMES.map(theme => (
-          <button
-            key={theme.id}
-            onClick={() => setActiveTheme(theme)}
-            className={`w-4 h-4 rounded-full transition-all duration-300 border-2 ${activeTheme.id === theme.id ? 'scale-125' : 'scale-100 opacity-50 hover:opacity-100'}`}
-            style={{ 
-              backgroundColor: theme.hex, 
-              borderColor: activeTheme.id === theme.id ? '#fff' : 'transparent',
-              boxShadow: activeTheme.id === theme.id ? `0 0 15px ${theme.hex}` : 'none'
-            }}
-            title={theme.name}
-          />
-        ))}
+      {/* Controls (Theme & Sound) */}
+      <div className="absolute top-6 right-6 flex items-center space-x-6 z-20">
+        <button 
+          onClick={toggleSound}
+          className="text-neutral-500 hover:text-white transition-colors"
+          title={soundEnabled ? "Desativar Som" : "Ativar Som"}
+        >
+          {soundEnabled ? <Volume2 size={20} style={{ color: themeColor, filter: `drop-shadow(0 0 5px ${themeColor})` }} /> : <VolumeX size={20} />}
+        </button>
+        
+        <div className="flex space-x-3">
+          {THEMES.map(theme => (
+            <button
+              key={theme.id}
+              onClick={() => changeTheme(theme)}
+              className={`w-4 h-4 rounded-full transition-all duration-300 border-2 ${activeTheme.id === theme.id ? 'scale-125' : 'scale-100 opacity-50 hover:opacity-100'}`}
+              style={{ 
+                backgroundColor: theme.hex, 
+                borderColor: activeTheme.id === theme.id ? '#fff' : 'transparent',
+                boxShadow: activeTheme.id === theme.id ? `0 0 15px ${theme.hex}` : 'none'
+              }}
+              title={theme.name}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Main Clock Container with 3D Tilt */}
