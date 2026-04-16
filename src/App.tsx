@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Battery, Activity, Clock, RefreshCw, Volume2, VolumeX, Play, Square, Flag, Timer, RotateCcw, MapPin, Zap, Bell, Gauge, Navigation, Thermometer, Wifi, WifiOff, Mic, MicOff, Sunrise, Sunset, Eye, Scan, Bluetooth, Camera } from 'lucide-react';
+import { Sun, Moon, Battery, Activity, Clock, RefreshCw, Volume2, VolumeX, Play, Square, Flag, Timer, RotateCcw, MapPin, Zap, Bell, Gauge, Navigation, Thermometer, Wifi, WifiOff, Mic, MicOff, Sunrise, Sunset, Eye, Scan, Bluetooth, Camera, Orbit, Globe, Compass, Radio, Hash, Droplet, Bed } from 'lucide-react';
+
+declare global {
+  interface Navigator {
+    bluetooth: any;
+  }
+}
 
 // --- Sound Engine (Web Audio API) ---
 class SoundEngine {
@@ -170,6 +176,10 @@ class SoundEngine {
     osc.stop(this.ctx.currentTime + 0.1);
   }
 
+  playBeep() {
+    this.playButtonPress();
+  }
+
   playAlarm() {
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
@@ -257,7 +267,7 @@ function getSunTimes(lat: number, lng: number, date: Date) {
   return { rise: sunrise - tzOffset, set: sunset - tzOffset };
 }
 
-type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed' | 'scanner' | 'radar';
+type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed' | 'scanner' | 'radar' | 'orbit' | 'nav' | 'sonar' | 'decrypt' | 'water' | 'sleep';
 
 export default function App() {
   const [now, setNow] = useState(new Date());
@@ -303,7 +313,20 @@ export default function App() {
   const [tmRemaining, setTmRemaining] = useState(0);
 
   // Speedometer State
-  const [speedData, setSpeedData] = useState<{ speed: number | null, heading: number | null, maxSpeed: number }>({ speed: null, heading: null, maxSpeed: 0 });
+  const [speedData, setSpeedData] = useState<{ speed: number | null, heading: number | null, maxSpeed: number, latitude: number | null, longitude: number | null, altitude: number | null, accuracy: number | null }>({ speed: null, heading: null, maxSpeed: 0, latitude: null, longitude: null, altitude: null, accuracy: null });
+
+  // Sonar State
+  const [audioLevels, setAudioLevels] = useState<number[]>(new Array(60).fill(0));
+
+  // Decrypt State
+  const [decryptData, setDecryptData] = useState<{chars: string[]}>({chars: new Array(12).fill('0')});
+
+  // Water & Sleep State
+  const [waterIntake, setWaterIntake] = useState(0);
+  const waterGoal = 2000;
+  const [isSleeping, setIsSleeping] = useState(false);
+  const [sleepStart, setSleepStart] = useState<number | null>(null);
+  const [lastSleepDuration, setLastSleepDuration] = useState<number>(0);
 
   // Refs for animation loop
   const clockRef = useRef<HTMLDivElement>(null);
@@ -332,7 +355,7 @@ export default function App() {
   // Speedometer GPS Watcher
   useEffect(() => {
     let watchId: number;
-    if (appMode === 'speed' && 'geolocation' in navigator) {
+    if ((appMode === 'speed' || appMode === 'nav') && 'geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const s = pos.coords.speed; // m/s
@@ -340,7 +363,11 @@ export default function App() {
           setSpeedData(prev => ({
             speed: s,
             heading: h,
-            maxSpeed: s !== null && s > prev.maxSpeed ? s : prev.maxSpeed
+            maxSpeed: s !== null && s > prev.maxSpeed ? s : prev.maxSpeed,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            altitude: pos.coords.altitude,
+            accuracy: pos.coords.accuracy
           }));
         },
         (err) => console.warn('Speedometer GPS error:', err),
@@ -494,6 +521,25 @@ export default function App() {
       const isHighRefresh = appMode === 'stopwatch' || appMode === 'timer';
       const throttleMs = isHighRefresh ? 16 : 100; // ~60fps vs ~10fps
       
+      // Decrypt Logic
+      if (appMode === 'decrypt') {
+         if (timestamp - lastRenderTime >= 50) { // faster refresh for matrix effect
+            setDecryptData(prev => ({
+              chars: prev.chars.map((c, i) => Math.random() > 0.8 ? '0123456789ABCDEF'[Math.floor(Math.random() * 16)] : c)
+            }));
+         }
+      }
+
+      // Sonar Logic
+      if (appMode === 'sonar' && analyserRef.current) {
+         if (timestamp - lastRenderTime >= 30) {
+            const dataArray = new Uint8Array(60); // Match ring circumference
+            analyserRef.current.getByteFrequencyData(dataArray);
+            // Array from instead of subarray
+            setAudioLevels(Array.from(dataArray));
+         }
+      }
+
       if (timestamp - lastRenderTime >= throttleMs) {
         setNow(newNow);
         lastRenderTime = timestamp;
@@ -609,6 +655,43 @@ export default function App() {
     setAppMode(mode);
     if (soundEnabled) soundEngine.playButtonPress();
   };
+
+  // Sonar Mic Handling
+  useEffect(() => {
+    if (appMode === 'sonar') {
+      const initSonar = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          micStreamRef.current = stream;
+          const ctx = new AudioContext();
+          audioContextRef.current = ctx;
+          const source = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128; // 64 frequency bins
+          source.connect(analyser);
+          analyserRef.current = analyser;
+        } catch (e) {
+          console.error("Microphone access denied for Sonar:", e);
+        }
+      };
+      initSonar();
+    } else {
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach(t => t.stop());
+        micStreamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+      analyserRef.current = null;
+    }
+    
+    return () => {
+      // Don't kill audio automatically on unmount if it's just a re-render, 
+      // but managed by appMode it's handled above in the else block.
+    };
+  }, [appMode]);
 
   // Bluetooth Scanner Web API
   const toggleBtScan = async () => {
@@ -732,6 +815,30 @@ export default function App() {
     setSpeedData(prev => ({ ...prev, maxSpeed: 0 }));
   };
 
+  const handleCenterClick = () => {
+    if (appMode === 'clock') toggleMode();
+    else if (appMode === 'stopwatch') toggleStopwatch();
+    else if (appMode === 'timer') toggleTimer();
+    else if (appMode === 'speed') resetMaxSpeed();
+    else if (appMode === 'water') {
+      vibrate();
+      if (soundEnabled) soundEngine.playButtonPress();
+      setWaterIntake(w => Math.min(w + 250, 9999));
+    }
+    else if (appMode === 'sleep') {
+      vibrate();
+      if (soundEnabled) soundEngine.playButtonPress();
+      if (isSleeping) {
+        setLastSleepDuration(Date.now() - (sleepStart || Date.now()));
+        setIsSleeping(false);
+        setSleepStart(null);
+      } else {
+        setIsSleeping(true);
+        setSleepStart(Date.now());
+      }
+    }
+  };
+
   // Clock Calculations
   const decimalTime = getDecimalTime(now);
   const decimalDate = getDecimalDate(now);
@@ -748,6 +855,14 @@ export default function App() {
   const pad3 = (n: number) => n.toString().padStart(3, '0');
   const themeColor = activeTheme.hex;
 
+  // Planet Orbits Calculation (J2000 epoch: Jan 1, 2000 12:00 UTC)
+  const daysSinceJ2000 = (now.getTime() - 946728000000) / 86400000;
+  const planets = {
+    mercury: ((daysSinceJ2000 / 87.969) * 360) % 360,
+    venus: ((daysSinceJ2000 / 224.701) * 360) % 360,
+    earth: ((daysSinceJ2000 / 365.256) * 360) % 360,
+  };
+
   // Theme UI mapping
   const ui = {
     bgApp: arEnabled ? "bg-black" : (isLightMode ? "bg-stone-200" : "bg-[#050505]"),
@@ -761,11 +876,15 @@ export default function App() {
     btnBg: arEnabled ? "bg-black/50" : (isLightMode ? "bg-white" : "bg-[#0f0f0f]"),
     btnBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-200" : "border-[#1a1a1a]"),
     btnHoverBorder: arEnabled ? "hover:border-white/40" : (isLightMode ? "hover:border-stone-400" : "hover:border-[#333]"),
-    clockShadow: arEnabled 
-      ? `0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px ${themeColor}60`
-      : isLightMode
-        ? `0 20px 50px rgba(0,0,0,0.1), inset 0 0 60px rgba(0,0,0,0.05), 0 0 30px ${themeColor}40`
-        : `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`,
+    clockShadow: appMode === 'water' 
+      ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #3b82f640`
+      : appMode === 'sleep'
+        ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #6366f140`
+        : arEnabled 
+          ? `0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px ${themeColor}60`
+          : isLightMode
+            ? `0 20px 50px rgba(0,0,0,0.1), inset 0 0 60px rgba(0,0,0,0.05), 0 0 30px ${themeColor}40`
+            : `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`,
     controlBtnBorder: arEnabled ? "border-white/20 hover:bg-white/10" : (isLightMode ? "border-stone-300 hover:bg-stone-200" : "border-neutral-700 hover:bg-neutral-800"),
     dividerBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-300" : "border-neutral-800"),
     iconMuted: arEnabled ? "text-white/50" : (isLightMode ? "text-stone-400" : "text-neutral-400")
@@ -906,9 +1025,15 @@ export default function App() {
             { id: 'timer', icon: Bell, label: 'TIMER' },
             { id: 'speed', icon: Gauge, label: 'SPEED' },
             { id: 'scanner', icon: Scan, label: 'SCAN' },
-            { id: 'radar', icon: Bluetooth, label: 'RADAR' }
+            { id: 'radar', icon: Bluetooth, label: 'RADAR' },
+            { id: 'orbit', icon: Orbit, label: 'ORBIT' },
+            { id: 'nav', icon: Compass, label: 'NAV' },
+            { id: 'sonar', icon: Radio, label: 'SONAR' },
+            { id: 'decrypt', icon: Hash, label: 'DECRYPT' },
+            { id: 'water', icon: Droplet, label: 'WATER' },
+            { id: 'sleep', icon: Bed, label: 'SLEEP' }
           ].map((m, i, arr) => {
-            const angle = -Math.PI / 2 + (i - (arr.length - 1) / 2) * (Math.PI / 8.5); // Spread across the top arc
+            const angle = -Math.PI / 2 + (i - (arr.length - 1) / 2) * (Math.PI / 12); // Spread across the top arc with tighter spacing
             const radius = 56; // % distance, pushing them just outside the border
             const top = 50 + radius * Math.sin(angle);
             const left = 50 + radius * Math.cos(angle);
@@ -975,7 +1100,7 @@ export default function App() {
 
             {/* Middle Ring (Mins / SW Secs / Timer Secs) */}
             <circle cx="200" cy="200" r={radiusMins} fill="none" stroke={ui.ringBg} strokeWidth="6" style={{ transition: 'stroke 1s ease' }} />
-            <circle cx="200" cy="200" r={radiusMins} fill="none" stroke={themeColor} strokeWidth="6" strokeLinecap="round" strokeOpacity="0.7"
+            <circle cx="200" cy="200" r={radiusMins} fill="none" stroke={themeColor} strokeWidth="6" strokeLinecap="round" strokeOpacity={appMode === 'decrypt' ? "0.2" : "0.7"}
               strokeDasharray={circMins} strokeDashoffset={offsetMins}
               style={{ filter: `drop-shadow(0 0 6px ${themeColor}60)` }}
               className={appMode === 'stopwatch' ? '' : 'transition-all duration-75 ease-linear'} />
@@ -984,10 +1109,29 @@ export default function App() {
             {appMode !== 'timer' && (
               <>
                 <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke={ui.ringBg} strokeWidth="4" style={{ transition: 'stroke 1s ease' }} />
-                <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke={themeColor} strokeWidth="4" strokeLinecap="round" strokeOpacity="0.4"
+                <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke={themeColor} strokeWidth="4" strokeLinecap="round" strokeOpacity={appMode === 'decrypt' ? "0.1" : "0.4"}
                   strokeDasharray={circSecs} strokeDashoffset={offsetSecs}
                   style={{ filter: `drop-shadow(0 0 4px ${themeColor}40)` }}
                   className={appMode === 'stopwatch' ? '' : 'transition-all duration-75 ease-linear'} />
+              </>
+            )}
+
+            {/* Planetary Orbits */}
+            {appMode === 'orbit' && (
+              <>
+                <g style={{ transform: `rotate(${planets.mercury}deg)`, transformOrigin: '200px 200px' }}>
+                  <circle cx="320" cy="200" r="5" fill="#a8a8a8" style={{ filter: 'drop-shadow(0 0 5px #a8a8a8)' }} />
+                </g>
+                <g style={{ transform: `rotate(${planets.venus}deg)`, transformOrigin: '200px 200px' }}>
+                  <circle cx="340" cy="200" r="7" fill="#e2c47a" style={{ filter: 'drop-shadow(0 0 6px #e2c47a)' }} />
+                </g>
+                <g style={{ transform: `rotate(${planets.earth}deg)`, transformOrigin: '200px 200px' }}>
+                  <circle cx="360" cy="200" r="8" fill="#4b9cd3" style={{ filter: 'drop-shadow(0 0 8px #4b9cd3)' }} />
+                  {/* The Moon */}
+                  <g style={{ transform: `rotate(${(daysSinceJ2000 / 27.322) * 360}deg)`, transformOrigin: '360px 200px' }}>
+                     <circle cx="373" cy="200" r="2.5" fill="#ffffff" style={{ filter: 'drop-shadow(0 0 2px #ffffff)' }} />
+                  </g>
+                </g>
               </>
             )}
 
@@ -1003,6 +1147,32 @@ export default function App() {
                 <polygon points="196,200 204,200 200,40" fill={themeColor} style={{ filter: `drop-shadow(0 0 8px ${themeColor})` }} opacity="0.8" />
                 <circle cx="200" cy="200" r="8" fill="#111" stroke={themeColor} strokeWidth="2" />
               </g>
+            )}
+
+            {/* Sonar Audio Waveform */}
+            {appMode === 'sonar' && (
+               <g>
+                   {audioLevels.map((val, i) => {
+                       const angle = (i / 60) * 360;
+                       const rad = angle * (Math.PI / 180);
+                       const barHeight = 10 + (val / 255) * 50; // max 60 height
+                       // We map around radius 160
+                       const x1 = 200 + 130 * Math.cos(rad);
+                       const y1 = 200 + 130 * Math.sin(rad);
+                       const x2 = 200 + (130 + barHeight) * Math.cos(rad);
+                       const y2 = 200 + (130 + barHeight) * Math.sin(rad);
+                       return (
+                           <line 
+                               key={`sonar-${i}`} 
+                               x1={x1} y1={y1} x2={x2} y2={y2} 
+                               stroke={themeColor}
+                               strokeWidth="3"
+                               strokeLinecap="round"
+                               style={{ filter: `drop-shadow(0 0 6px ${themeColor})`, transition: 'all 0.05s ease-out' }}
+                           />
+                       );
+                   })}
+               </g>
             )}
 
             {/* Radar Sweep Arc */}
@@ -1023,13 +1193,33 @@ export default function App() {
                 <rect x="90" y="90" width="220" height="220" fill="none" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3" />
               </g>
             )}
+
+            {/* Water Tracker Fill */}
+            {appMode === 'water' && (
+              <g>
+                <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke="#2563eb" strokeWidth="20" opacity="0.1" />
+                <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke="#3b82f6" strokeWidth="20" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * (radiusHours - 10)} 
+                  strokeDashoffset={2 * Math.PI * (radiusHours - 10) * (1 - Math.min(waterIntake / waterGoal, 1))}
+                  style={{ transition: 'stroke-dashoffset 1s ease-out', filter: 'drop-shadow(0 0 10px #3b82f6)' }}
+                />
+              </g>
+            )}
+
+            {/* Sleep Breathing Ring */}
+            {appMode === 'sleep' && isSleeping && (
+              <circle cx="200" cy="200" r="150" fill="none" stroke="#6366f1" strokeWidth="4" 
+                className="animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]" 
+                opacity="0.3"
+              />
+            )}
           </svg>
 
           {/* Center Action Button / Celestial Body */}
           <button 
-            onClick={appMode === 'clock' ? toggleMode : appMode === 'stopwatch' ? toggleStopwatch : appMode === 'timer' ? toggleTimer : resetMaxSpeed}
+            onClick={handleCenterClick}
             className={`absolute z-40 w-20 h-20 sm:w-28 sm:h-28 rounded-full flex items-center justify-center ${ui.btnBg} border-2 ${ui.btnBorder} shadow-[0_0_30px_rgba(0,0,0,0.9)] hover:scale-105 ${ui.btnHoverBorder} transition-all duration-300 group cursor-pointer`}
-            title={appMode === 'clock' ? "Alternar Modo" : appMode === 'speed' ? "Zerar Max Speed" : "Iniciar/Pausar"}
+            title={appMode === 'clock' ? "Alternar Modo" : appMode === 'speed' ? "Zerar Max Speed" : appMode === 'water' ? "+250ml" : appMode === 'sleep' ? "Dormir/Acordar" : "Ação Central"}
           >
             {appMode === 'clock' ? (
                isDay ? (
@@ -1053,10 +1243,50 @@ export default function App() {
                   <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
                   {tmRunning ? <Square className="w-6 h-6 sm:w-8 sm:h-8" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} fill="currentColor" /> : <Play className="w-7 h-7 sm:w-9 sm:h-9 ml-1" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} fill="currentColor" />}
                </div>
-            ) : (
+            ) : appMode === 'speed' ? (
                <div className="relative flex items-center justify-center">
                   <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
                   <Navigation className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})`, transform: `rotate(${speedData.heading || 0}deg)` }} fill="currentColor" />
+               </div>
+            ) : appMode === 'scanner' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
+                  <Scan className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />
+               </div>
+            ) : appMode === 'radar' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
+                  <Bluetooth className={`w-7 h-7 sm:w-9 sm:h-9 ${isScanningBt ? 'animate-pulse' : ''}`} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />
+               </div>
+            ) : appMode === 'nav' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
+                  <Compass className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})`, transform: `rotate(${-(speedData.heading || 0)}deg)` }} />
+               </div>
+            ) : appMode === 'sonar' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: `${themeColor}20` }}></div>
+                  <Radio className="w-7 h-7 sm:w-9 sm:h-9 animate-pulse" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />
+               </div>
+            ) : appMode === 'decrypt' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl animate-pulse" style={{ backgroundColor: `${themeColor}20` }}></div>
+                   <Hash className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />
+               </div>
+            ) : appMode === 'water' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl animate-pulse" style={{ backgroundColor: `${themeColor}20` }}></div>
+                   <Droplet className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />
+               </div>
+            ) : appMode === 'sleep' ? (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 rounded-full blur-xl" style={{ backgroundColor: isSleeping ? '#4f46e540' : `${themeColor}20` }}></div>
+                   <Bed className={`w-7 h-7 sm:w-9 sm:h-9 ${isSleeping ? 'animate-pulse' : ''}`} style={{ color: isSleeping ? '#818cf8' : themeColor, filter: `drop-shadow(0 0 10px ${isSleeping ? '#818cf8' : themeColor})` }} />
+               </div>
+            ) : (
+               <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 sm:w-16 sm:h-16 bg-yellow-500/20 rounded-full blur-xl animate-[pulse_4s_ease-in-out_infinite]"></div>
+                  <Sun className="w-7 h-7 sm:w-9 sm:h-9 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] animate-[spin_20s_linear_infinite]" />
                </div>
             )}
              
@@ -1108,6 +1338,24 @@ export default function App() {
                 )}
                 {appMode === 'scanner' && 'READY'}
                 {appMode === 'radar' && btDevices.length.toString().padStart(2, '0')}
+                {appMode === 'orbit' && 'ORBITAL'}
+                {appMode === 'nav' && (speedData.latitude !== null ? `${Math.abs(speedData.latitude).toFixed(4)}° ${speedData.latitude >= 0 ? 'N' : 'S'}` : 'SEARCHING...')}
+                {appMode === 'sonar' && 'LISTENING'}
+                {appMode === 'decrypt' && decryptData.chars.slice(0, 6).join('')}
+                {appMode === 'water' && 'INTAKE'}
+                {appMode === 'sleep' && (isSleeping ? (
+                    <>
+                      {pad(Math.floor((Date.now() - (sleepStart || Date.now())) / 3600000))}
+                      <tspan className="animate-pulse">:</tspan>
+                      {pad(Math.floor(((Date.now() - (sleepStart || Date.now())) % 3600000) / 60000))}
+                      <tspan className="animate-pulse">:</tspan>
+                      <tspan stroke="#555" style={{ filter: 'none' }}>{pad(Math.floor(((Date.now() - (sleepStart || Date.now())) % 60000) / 1000))}</tspan>
+                    </>
+                  ) : lastSleepDuration > 0 ? (
+                    <>
+                      {pad(Math.floor(lastSleepDuration / 3600000))}:{pad(Math.floor((lastSleepDuration % 3600000) / 60000))}
+                    </>
+                  ) : 'RESTING')}
               </textPath>
             </text>
 
@@ -1119,6 +1367,12 @@ export default function App() {
                  appMode === 'timer' ? 'SYSTEM PURGE' :
                  appMode === 'speed' ? 'VELOCITY KM/HD' :
                  appMode === 'scanner' ? 'TARGET ACQUISITION' :
+                 appMode === 'orbit' ? 'HELIOCENTRIC' :
+                 appMode === 'nav' ? 'LATITUDE POS' :
+                 appMode === 'sonar' ? 'ACOUSTIC SENSOR' :
+                 appMode === 'decrypt' ? 'SYS INTRUSION' :
+                 appMode === 'water' ? 'H2O TRACKER' :
+                 appMode === 'sleep' ? 'BIOMETRIC SLEEP' :
                  'DEVICES FOUND'}
               </textPath>
             </text>
@@ -1136,6 +1390,12 @@ export default function App() {
                 )}
                 {appMode === 'scanner' && 'IDLE'}
                 {appMode === 'radar' && (isScanningBt ? 'SCANNING' : 'STANDBY')}
+                {appMode === 'orbit' && `J2000 + ${Math.floor(daysSinceJ2000)}`}
+                {appMode === 'nav' && (speedData.longitude !== null ? `${Math.abs(speedData.longitude).toFixed(4)}° ${speedData.longitude >= 0 ? 'E' : 'W'}` : 'SEARCHING...')}
+                {appMode === 'sonar' && `${Math.round(100 - (audioLevels[0] || 0) / 255 * 100)}% CLR`}
+                {appMode === 'decrypt' && decryptData.chars.slice(6, 12).join('')}
+                {appMode === 'water' && `${waterIntake} / ${waterGoal} ML`}
+                {appMode === 'sleep' && (isSleeping ? 'RECORDING' : 'READY')}
               </textPath>
             </text>
 
@@ -1148,12 +1408,18 @@ export default function App() {
                     : now.toLocaleDateString('pt-BR', { weekday: 'long' }).toUpperCase()
                 ) : appMode === 'speed' ? 'PEAK VELOCITY' :
                     appMode === 'scanner' ? 'SYSTEM STATUS' :
+                    appMode === 'orbit' ? 'ABSOLUTE EPOCH' :
+                    appMode === 'nav' ? 'LONGITUDE POS' :
+                    appMode === 'sonar' ? 'SIGNAL TO NOISE' :
+                    appMode === 'decrypt' ? 'DECRYPTING...' :
+                    appMode === 'water' ? 'HYDRATION LEVEL' :
+                    appMode === 'sleep' ? 'SYSTEM STATUS' :
                     appMode === 'radar' ? 'NETWORK STATUS' : ''}
               </textPath>
             </text>
           </svg>
 
-          {/* Bottom Panel for SW / Timer / Speed */}
+          {/* Bottom Panel for SW / Timer / Speed / Water */}
           {appMode === 'stopwatch' && (
             <div className="absolute bottom-[12%] z-30 flex flex-col items-center w-full px-12">
               <div className="flex space-x-4 mb-3">
@@ -1173,10 +1439,10 @@ export default function App() {
           )}
 
           {appMode === 'timer' && (
-            <div className="absolute bottom-[15%] z-30 flex flex-col items-center w-full px-12">
+            <div className="absolute bottom-[14%] z-30 flex flex-col items-center w-full px-12">
               {!tmRunning && tmRemaining === 0 ? (
                 <div className="flex space-x-2">
-                  {[1, 5, 10].map(m => (
+                  {[1, 5, 15].map(m => (
                     <button key={m} onClick={() => addTimerTime(m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: themeColor }}>
                       +{m}m
                     </button>
@@ -1187,6 +1453,22 @@ export default function App() {
                   <RotateCcw size={12} /><span>Reset</span>
                 </button>
               )}
+            </div>
+          )}
+
+          {appMode === 'water' && (
+            <div className="absolute bottom-[16%] z-30 flex flex-col items-center w-full px-12">
+               <button onClick={() => setWaterIntake(0)} className={`flex items-center space-x-1 text-[10px] uppercase tracking-widest border px-4 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`}>
+                 <RotateCcw size={12} /><span>Reset</span>
+               </button>
+            </div>
+          )}
+
+          {appMode === 'sleep' && lastSleepDuration > 0 && !isSleeping && (
+            <div className="absolute bottom-[16%] z-30 flex flex-col items-center w-full px-12">
+               <button onClick={() => setLastSleepDuration(0)} className={`flex items-center space-x-1 text-[10px] uppercase tracking-widest border px-4 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`}>
+                 <RotateCcw size={12} /><span>Reset</span>
+               </button>
             </div>
           )}
 
