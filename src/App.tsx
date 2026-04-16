@@ -405,7 +405,10 @@ export default function App() {
       x = Math.max(-30, Math.min(30, x));
       y = Math.max(-30, Math.min(30, y));
       
-      setTilt({ x: -x, y: y });
+      if (clockRef.current) {
+        tiltRef.current = { x: -x, y: y };
+        clockRef.current.style.transform = `rotateX(${-x}deg) rotateY(${y}deg)`;
+      }
     };
 
     if (window.DeviceOrientationEvent) {
@@ -814,16 +817,11 @@ export default function App() {
       
       {/* AR Background Video */}
       <video 
-        ref={(el) => {
-          videoRef.current = el;
-          if (el && streamRef.current) {
-            el.srcObject = streamRef.current;
-          }
-        }}
+        ref={videoRef}
         autoPlay 
         playsInline 
         muted 
-        className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 hidden'}`}
+        className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         style={{ filter: `sepia(100%) hue-rotate(${activeTheme.id === 'cyber' ? 180 : activeTheme.id === 'matrix' ? 90 : activeTheme.id === 'blood' ? -50 : activeTheme.id === 'gold' ? 0 : 220}deg) saturate(200%) brightness(50%)` }}
       />
       
