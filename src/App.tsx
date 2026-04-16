@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Battery, Activity, Clock, RefreshCw, Volume2, VolumeX, Play, Square, Flag, Timer, RotateCcw, MapPin, Zap, Bell, Gauge, Navigation, Thermometer, Wifi, WifiOff, Mic, MicOff, Sunrise, Sunset } from 'lucide-react';
+import { Sun, Moon, Battery, Activity, Clock, RefreshCw, Volume2, VolumeX, Play, Square, Flag, Timer, RotateCcw, MapPin, Zap, Bell, Gauge, Navigation, Thermometer, Wifi, WifiOff, Mic, MicOff, Sunrise, Sunset, Eye, Scan, Bluetooth, Camera } from 'lucide-react';
 
 // --- Sound Engine (Web Audio API) ---
 class SoundEngine {
@@ -257,16 +257,26 @@ function getSunTimes(lat: number, lng: number, date: Date) {
   return { rise: sunrise - tzOffset, set: sunset - tzOffset };
 }
 
-type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed';
+type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed' | 'scanner' | 'radar';
 
 export default function App() {
   const [now, setNow] = useState(new Date());
   const [activeTheme, setActiveTheme] = useState(THEMES[0]);
   const [displayMode, setDisplayMode] = useState<'decimal' | 'standard'>('decimal');
   const [appMode, setAppMode] = useState<AppMode>('clock');
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const tiltRef = useRef({ x: 0, y: 0 });
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [lightModeOverride, setLightModeOverride] = useState<boolean | null>(null);
   
+  // AR & Camera State
+  const [arEnabled, setArEnabled] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Bluetooth State
+  const [btDevices, setBtDevices] = useState<{name: string, id: string, rssi?: number}[]>([]);
+  const [isScanningBt, setIsScanningBt] = useState(false);
+
   // Real-world Complications State
   const [battery, setBattery] = useState<{ level: number, charging: boolean } | null>(null);
   const [sunTimes, setSunTimes] = useState<{ rise: number, set: number }>({ rise: 6, set: 18 }); // Default 6am-6pm
@@ -471,9 +481,20 @@ export default function App() {
   // Main Animation Loop
   useEffect(() => {
     let animationFrameId: number;
-    const updateTime = () => {
+    let lastRenderTime = 0;
+    
+    const updateTime = (timestamp: number) => {
       const newNow = new Date();
-      setNow(newNow);
+      
+      // If we are in clock/speed/scanner/radar mode, we only need to update the UI
+      // a few times per second (e.g., 5-10 fps). For stopwatch/timer, we need ~60fps.
+      const isHighRefresh = appMode === 'stopwatch' || appMode === 'timer';
+      const throttleMs = isHighRefresh ? 16 : 100; // ~60fps vs ~10fps
+      
+      if (timestamp - lastRenderTime >= throttleMs) {
+        setNow(newNow);
+        lastRenderTime = timestamp;
+      }
       
       // Stopwatch Logic
       if (swRunningRef.current) {
@@ -537,7 +558,7 @@ export default function App() {
 
       animationFrameId = requestAnimationFrame(updateTime);
     };
-    updateTime();
+    updateTime(performance.now());
     return () => cancelAnimationFrame(animationFrameId);
   }, [appMode]);
 
@@ -546,10 +567,17 @@ export default function App() {
     const rect = clockRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    setTilt({ x: -(y / rect.height) * 30, y: (x / rect.width) * 30 });
+    const tiltX = -(y / rect.height) * 30;
+    const tiltY = (x / rect.width) * 30;
+    tiltRef.current = { x: tiltX, y: tiltY };
+    clockRef.current.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
   };
 
-  const handleMouseLeave = () => setTilt({ x: 0, y: 0 });
+  const handleMouseLeave = () => {
+    if (!clockRef.current) return;
+    tiltRef.current = { x: 0, y: 0 };
+    clockRef.current.style.transform = `rotateX(0deg) rotateY(0deg)`;
+  };
 
   const toggleMode = () => {
     vibrate();
@@ -577,6 +605,70 @@ export default function App() {
     vibrate();
     setAppMode(mode);
     if (soundEnabled) soundEngine.playButtonPress();
+  };
+
+  // Bluetooth Scanner Web API
+  const toggleBtScan = async () => {
+    if (!navigator.bluetooth) {
+      alert("Web Bluetooth API is not supported in this browser.");
+      return;
+    }
+    
+    if (isScanningBt) {
+      setIsScanningBt(false);
+      return;
+    }
+
+    try {
+      setIsScanningBt(true);
+      if (soundEnabled) soundEngine.playTick();
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true
+      });
+      
+      setBtDevices(prev => {
+        if (!prev.find(d => d.id === device.id)) {
+          return [...prev, { name: device.name || 'Unknown Device', id: device.id, rssi: Math.floor(Math.random() * -50) - 40 }];
+        }
+        return prev;
+      });
+      setIsScanningBt(false);
+      if (soundEnabled) soundEngine.playBeep();
+    } catch (e) {
+      console.warn("Bluetooth scan cancelled or failed", e);
+      setIsScanningBt(false);
+    }
+  };
+
+  // AR Camera Controls
+  const toggleAR = async () => {
+    if (arEnabled) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      setArEnabled(false);
+      if (soundEnabled) soundEngine.playTick();
+    } else {
+      try {
+        // First try to get the environment camera, fallback to any camera if that fails
+        let stream;
+        try {
+           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        } catch (e) {
+           stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setArEnabled(true);
+        if (soundEnabled) soundEngine.playBeep();
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        alert("Não foi possível acessar a câmera para o modo AR. Verifique as permissões de câmera do seu navegador.");
+      }
+    }
   };
 
   // Stopwatch Controls
@@ -642,10 +734,39 @@ export default function App() {
   const decimalDate = getDecimalDate(now);
   const currentStandardHour = now.getHours() + now.getMinutes() / 60;
   const isDay = currentStandardHour >= sunTimes.rise && currentStandardHour < sunTimes.set;
+  const isLightMode = lightModeOverride !== null ? lightModeOverride : isDay;
+
+  const toggleLightMode = () => {
+    setLightModeOverride(!isLightMode);
+    soundEngine.playTick(); // Tick sound for UI interaction
+  };
   
   const pad = (n: number) => n.toString().padStart(2, '0');
   const pad3 = (n: number) => n.toString().padStart(3, '0');
   const themeColor = activeTheme.hex;
+
+  // Theme UI mapping
+  const ui = {
+    bgApp: arEnabled ? "bg-black" : (isLightMode ? "bg-stone-200" : "bg-[#050505]"),
+    textMain: isLightMode && !arEnabled ? "text-stone-800" : "text-white",
+    textMuted: isLightMode && !arEnabled ? "text-stone-500" : "text-neutral-400",
+    textVeryMuted: isLightMode && !arEnabled ? "text-stone-400" : "text-neutral-600",
+    bgClock: arEnabled ? "bg-black/60 backdrop-blur-sm" : (isLightMode ? "bg-stone-100" : "bg-[#0a0a0a]"),
+    borderClock: arEnabled ? "border-white/20" : (isLightMode ? "border-white" : "border-[#111]"),
+    ringBg: arEnabled ? "rgba(255,255,255,0.1)" : (isLightMode ? "#d6d3d1" : "#151515"),
+    tickMuted: arEnabled ? "rgba(255,255,255,0.2)" : (isLightMode ? "#a8a29e" : "#222"),
+    btnBg: arEnabled ? "bg-black/50" : (isLightMode ? "bg-white" : "bg-[#0f0f0f]"),
+    btnBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-200" : "border-[#1a1a1a]"),
+    btnHoverBorder: arEnabled ? "hover:border-white/40" : (isLightMode ? "hover:border-stone-400" : "hover:border-[#333]"),
+    clockShadow: arEnabled 
+      ? `0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px ${themeColor}60`
+      : isLightMode
+        ? `0 20px 50px rgba(0,0,0,0.1), inset 0 0 60px rgba(0,0,0,0.05), 0 0 30px ${themeColor}40`
+        : `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`,
+    controlBtnBorder: arEnabled ? "border-white/20 hover:bg-white/10" : (isLightMode ? "border-stone-300 hover:bg-stone-200" : "border-neutral-700 hover:bg-neutral-800"),
+    dividerBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-300" : "border-neutral-800"),
+    iconMuted: arEnabled ? "text-white/50" : (isLightMode ? "text-stone-400" : "text-neutral-400")
+  };
 
   // SVG Ring calculations based on App Mode
   const radiusHours = 160;
@@ -682,45 +803,68 @@ export default function App() {
     offsetHours = circHours - Math.min(speedKmh / 200, 1) * circHours; // 0 to 200 km/h
     offsetMins = circMins - (maxSpeedKmh > 0 ? Math.min(speedKmh / maxSpeedKmh, 1) : 0) * circMins; // Relative to max speed
     offsetSecs = circSecs; // Unused in speed
+  } else if (appMode === 'scanner' || appMode === 'radar') {
+    offsetHours = circHours;
+    offsetMins = circMins;
+    offsetSecs = circSecs;
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden">
+    <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative`}>
       
-      {/* Header & Mode Selector */}
-      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex space-x-2 sm:space-x-4 z-20">
-        {[
-          { id: 'clock', icon: Clock, label: 'CHRONO' },
-          { id: 'stopwatch', icon: Timer, label: 'SW' },
-          { id: 'timer', icon: Bell, label: 'TIMER' },
-          { id: 'speed', icon: Gauge, label: 'SPEED' }
-        ].map(m => (
-          <button
-            key={m.id}
-            onClick={() => switchAppMode(m.id as AppMode)}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md border transition-all ${appMode === m.id ? 'bg-white/10 border-white/30 text-white' : 'border-transparent text-neutral-600 hover:text-neutral-300'}`}
-            style={appMode === m.id ? { borderColor: themeColor, color: themeColor, textShadow: `0 0 10px ${themeColor}` } : {}}
-          >
-            <m.icon size={16} />
-            <span className="text-[10px] sm:text-xs tracking-wider hidden sm:inline">{m.label}</span>
-          </button>
-        ))}
-      </div>
+      {/* AR Background Video */}
+      <video 
+        ref={(el) => {
+          videoRef.current = el;
+          if (el && streamRef.current) {
+            el.srcObject = streamRef.current;
+          }
+        }}
+        autoPlay 
+        playsInline 
+        muted 
+        className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 hidden'}`}
+        style={{ filter: `sepia(100%) hue-rotate(${activeTheme.id === 'cyber' ? 180 : activeTheme.id === 'matrix' ? 90 : activeTheme.id === 'blood' ? -50 : activeTheme.id === 'gold' ? 0 : 220}deg) saturate(200%) brightness(50%)` }}
+      />
+      
+      {/* AR Scanlines Overlay */}
+      {arEnabled && (
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 2px, rgba(0,0,0,0.8) 2px, rgba(0,0,0,0.8) 4px)', backgroundSize: '100% 4px' }}></div>
+      )}
 
+      {/* Title */}
       <div className="text-center mb-6 sm:mb-8 max-w-md z-10 mt-12 sm:mt-0">
         <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2 text-white tracking-widest drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
           DECIMAL<span style={{ color: themeColor, textShadow: `0 0 15px ${themeColor}` }}>CHRONO</span>
         </h1>
         <p className="text-[10px] sm:text-xs text-neutral-500 uppercase tracking-[0.3em]">
-          {appMode === 'clock' ? 'Sistema de Tempo Alternativo' : appMode === 'stopwatch' ? 'Cronômetro de Precisão' : appMode === 'timer' ? 'Purga de Sistema (Timer)' : 'Telemetria de Velocidade'}
+          {appMode === 'clock' ? 'Sistema de Tempo Alternativo' : appMode === 'stopwatch' ? 'Cronômetro de Precisão' : appMode === 'timer' ? 'Purga de Sistema (Timer)' : appMode === 'speed' ? 'Telemetria de Velocidade' : appMode === 'scanner' ? 'Módulo de Reconhecimento' : 'Radar de Proximidade BLE'}
         </p>
       </div>
 
-      {/* Controls (Theme & Sound) */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center space-x-4 sm:space-x-6 z-20">
+      {/* Controls (Theme & Sound & Light Mode & AR) */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-wrap justify-end gap-3 sm:gap-6 z-20 max-w-[40vw]">
+        
+        <button 
+          onClick={toggleAR}
+          className={`${ui.textMuted} hover:${isLightMode && !arEnabled ? 'text-black' : 'text-white'} transition-colors relative`}
+          title={arEnabled ? "Desativar Visão AR" : "Ativar Visão AR"}
+        >
+          {arEnabled ? <Eye size={20} style={{ color: themeColor, filter: `drop-shadow(0 0 5px ${themeColor})` }} /> : <Eye size={20} className="opacity-50" />}
+          {arEnabled && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: themeColor }}></span>}
+        </button>
+
+        <button 
+          onClick={toggleLightMode}
+          className={`${ui.textMuted} hover:${isLightMode && !arEnabled ? 'text-black' : 'text-white'} transition-colors`}
+          title={isLightMode ? "Ativar Modo Escuro" : "Ativar Modo Claro"}
+        >
+          {isLightMode ? <Sun size={20} style={{ color: themeColor, filter: `drop-shadow(0 0 5px ${themeColor})` }} /> : <Moon size={20} />}
+        </button>
+
         <button 
           onClick={toggleSound}
-          className="text-neutral-500 hover:text-white transition-colors"
+          className={`${ui.textMuted} hover:${isLightMode ? 'text-black' : 'text-white'} transition-colors`}
           title={soundEnabled ? "Desativar Som" : "Ativar Som"}
         >
           {soundEnabled ? <Volume2 size={20} style={{ color: themeColor, filter: `drop-shadow(0 0 5px ${themeColor})` }} /> : <VolumeX size={20} />}
@@ -734,7 +878,7 @@ export default function App() {
               className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full transition-all duration-300 border-2 ${activeTheme.id === theme.id ? 'scale-125' : 'scale-100 opacity-50 hover:opacity-100'}`}
               style={{ 
                 backgroundColor: theme.hex, 
-                borderColor: activeTheme.id === theme.id ? '#fff' : 'transparent',
+                borderColor: activeTheme.id === theme.id ? (arEnabled ? '#fff' : '#fff') : 'transparent',
                 boxShadow: activeTheme.id === theme.id ? `0 0 15px ${theme.hex}` : 'none'
               }}
               title={theme.name}
@@ -751,12 +895,48 @@ export default function App() {
       >
         <div 
           ref={clockRef}
-          className="relative w-[350px] h-[350px] sm:w-[460px] sm:h-[460px] rounded-full border-[12px] sm:border-[14px] border-[#111] bg-[#0a0a0a] flex items-center justify-center transition-transform duration-100 ease-out"
+          className={`relative w-[350px] h-[350px] sm:w-[460px] sm:h-[460px] rounded-full border-[12px] sm:border-[14px] ${ui.borderClock} ${ui.bgClock} flex items-center justify-center transition-transform duration-100 ease-out`}
           style={{ 
-            transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-            boxShadow: `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`
+            boxShadow: ui.clockShadow,
+            transition: 'background-color 1s ease, border-color 1s ease, transform 0.1s ease-out'
           }}
         >
+          {/* Circular Mode Selector (Contouring the top of the clock) */}
+          {[
+            { id: 'clock', icon: Clock, label: 'CHRONO' },
+            { id: 'stopwatch', icon: Timer, label: 'SW' },
+            { id: 'timer', icon: Bell, label: 'TIMER' },
+            { id: 'speed', icon: Gauge, label: 'SPEED' },
+            { id: 'scanner', icon: Scan, label: 'SCAN' },
+            { id: 'radar', icon: Bluetooth, label: 'RADAR' }
+          ].map((m, i, arr) => {
+            const angle = -Math.PI / 2 + (i - (arr.length - 1) / 2) * (Math.PI / 8.5); // Spread across the top arc
+            const radius = 56; // % distance, pushing them just outside the border
+            const top = 50 + radius * Math.sin(angle);
+            const left = 50 + radius * Math.cos(angle);
+            return (
+              <button
+                key={m.id}
+                onClick={() => switchAppMode(m.id as AppMode)}
+                className={`absolute z-50 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-transparent transition-all duration-300 ${appMode === m.id ? 'bg-black/80 backdrop-blur-md scale-110' : `hover:bg-black/40 ${ui.bgApp}`}`}
+                style={{
+                  top: `${top}%`,
+                  left: `${left}%`,
+                  transform: 'translate(-50%, -50%)',
+                  ...(appMode === m.id ? { 
+                    borderColor: themeColor, 
+                    color: themeColor, 
+                    boxShadow: `0 0 15px ${themeColor}60` 
+                  } : {
+                    color: isLightMode && !arEnabled ? '#666' : '#999'
+                  })
+                }}
+                title={m.label}
+              >
+                <m.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            )
+          })}
           
           {/* Background texture */}
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full"></div>
@@ -778,9 +958,9 @@ export default function App() {
                 <line 
                   key={i} 
                   x1={x1} y1={y1} x2={x2} y2={y2} 
-                  stroke={isMajor ? themeColor : "#222"} 
+                  stroke={isMajor ? themeColor : ui.tickMuted} 
                   strokeWidth={isMajor ? "3" : "1.5"} 
-                  style={isMajor ? { filter: `drop-shadow(0 0 4px ${themeColor})` } : {}}
+                  style={isMajor ? { filter: `drop-shadow(0 0 4px ${themeColor})` } : { transition: 'stroke 1s ease' }}
                 />
               );
             })}
@@ -789,14 +969,14 @@ export default function App() {
           {/* Rings */}
           <svg className="absolute inset-0 w-full h-full transform -rotate-90 z-20 pointer-events-none" viewBox="0 0 400 400">
             {/* Outer Ring (Hours / SW Mins / Timer Progress) */}
-            <circle cx="200" cy="200" r={radiusHours} fill="none" stroke="#151515" strokeWidth="8" />
+            <circle cx="200" cy="200" r={radiusHours} fill="none" stroke={ui.ringBg} strokeWidth="8" style={{ transition: 'stroke 1s ease' }} />
             <circle cx="200" cy="200" r={radiusHours} fill="none" stroke={themeColor} strokeWidth="8" strokeLinecap="round"
               strokeDasharray={circHours} strokeDashoffset={offsetHours}
               style={{ filter: `drop-shadow(0 0 8px ${themeColor}80)` }}
               className={appMode === 'stopwatch' ? '' : 'transition-all duration-75 ease-linear'} />
 
             {/* Middle Ring (Mins / SW Secs / Timer Secs) */}
-            <circle cx="200" cy="200" r={radiusMins} fill="none" stroke="#151515" strokeWidth="6" />
+            <circle cx="200" cy="200" r={radiusMins} fill="none" stroke={ui.ringBg} strokeWidth="6" style={{ transition: 'stroke 1s ease' }} />
             <circle cx="200" cy="200" r={radiusMins} fill="none" stroke={themeColor} strokeWidth="6" strokeLinecap="round" strokeOpacity="0.7"
               strokeDasharray={circMins} strokeDashoffset={offsetMins}
               style={{ filter: `drop-shadow(0 0 6px ${themeColor}60)` }}
@@ -805,7 +985,7 @@ export default function App() {
             {/* Inner Ring (Secs / SW Ms / Unused) */}
             {appMode !== 'timer' && (
               <>
-                <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke="#151515" strokeWidth="4" />
+                <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke={ui.ringBg} strokeWidth="4" style={{ transition: 'stroke 1s ease' }} />
                 <circle cx="200" cy="200" r={radiusSecs} fill="none" stroke={themeColor} strokeWidth="4" strokeLinecap="round" strokeOpacity="0.4"
                   strokeDasharray={circSecs} strokeDashoffset={offsetSecs}
                   style={{ filter: `drop-shadow(0 0 4px ${themeColor}40)` }}
@@ -826,12 +1006,31 @@ export default function App() {
                 <circle cx="200" cy="200" r="8" fill="#111" stroke={themeColor} strokeWidth="2" />
               </g>
             )}
+
+            {/* Radar Sweep Arc */}
+            {appMode === 'radar' && isScanningBt && (
+              <g className="animate-[spin_4s_linear_infinite]" style={{ transformOrigin: '200px 200px' }}>
+                <path d="M 200,200 L 200,40 A 160,160 0 0,1 360,200 Z" fill={themeColor} opacity="0.1" />
+                <line x1="200" y1="200" x2="200" y2="40" stroke={themeColor} strokeWidth="2" style={{ filter: `drop-shadow(0 0 8px ${themeColor})` }} />
+              </g>
+            )}
+            
+            {/* Scanner Focus Box */}
+            {appMode === 'scanner' && (
+              <g opacity="0.5" stroke={themeColor} strokeWidth="2" fill="none">
+                <path d="M 120,100 L 100,100 L 100,120" />
+                <path d="M 280,100 L 300,100 L 300,120" />
+                <path d="M 120,300 L 100,300 L 100,280" />
+                <path d="M 280,300 L 300,300 L 300,280" />
+                <rect x="90" y="90" width="220" height="220" fill="none" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3" />
+              </g>
+            )}
           </svg>
 
           {/* Center Action Button / Celestial Body */}
           <button 
             onClick={appMode === 'clock' ? toggleMode : appMode === 'stopwatch' ? toggleStopwatch : appMode === 'timer' ? toggleTimer : resetMaxSpeed}
-            className="absolute z-40 w-20 h-20 sm:w-28 sm:h-28 rounded-full flex items-center justify-center bg-[#0f0f0f] border-2 border-[#1a1a1a] shadow-[0_0_30px_rgba(0,0,0,0.9)] hover:scale-105 hover:border-[#333] transition-all duration-300 group cursor-pointer"
+            className={`absolute z-40 w-20 h-20 sm:w-28 sm:h-28 rounded-full flex items-center justify-center ${ui.btnBg} border-2 ${ui.btnBorder} shadow-[0_0_30px_rgba(0,0,0,0.9)] hover:scale-105 ${ui.btnHoverBorder} transition-all duration-300 group cursor-pointer`}
             title={appMode === 'clock' ? "Alternar Modo" : appMode === 'speed' ? "Zerar Max Speed" : "Iniciar/Pausar"}
           >
             {appMode === 'clock' ? (
@@ -909,6 +1108,8 @@ export default function App() {
                     {((speedData.speed || 0) * 8.64).toFixed(1)}
                   </>
                 )}
+                {appMode === 'scanner' && 'READY'}
+                {appMode === 'radar' && btDevices.length.toString().padStart(2, '0')}
               </textPath>
             </text>
 
@@ -918,7 +1119,9 @@ export default function App() {
                 {appMode === 'clock' ? (displayMode === 'decimal' ? 'DECIMAL.TIME' : 'STANDARD.TIME') :
                  appMode === 'stopwatch' ? 'CHRONOGRAPH' :
                  appMode === 'timer' ? 'SYSTEM PURGE' :
-                 'VELOCITY KM/HD'}
+                 appMode === 'speed' ? 'VELOCITY KM/HD' :
+                 appMode === 'scanner' ? 'TARGET ACQUISITION' :
+                 'DEVICES FOUND'}
               </textPath>
             </text>
 
@@ -933,6 +1136,8 @@ export default function App() {
                 {appMode === 'speed' && (
                   `${(speedData.maxSpeed * 8.64).toFixed(1)} MAX`
                 )}
+                {appMode === 'scanner' && 'IDLE'}
+                {appMode === 'radar' && (isScanningBt ? 'SCANNING' : 'STANDBY')}
               </textPath>
             </text>
 
@@ -943,7 +1148,9 @@ export default function App() {
                   displayMode === 'decimal' 
                     ? `LAYER ${pad(decimalDate.month)}  |  STATE ${pad(decimalDate.dayOfMonth)}  |  CYCLE ${decimalDate.dayOfWeek}/9` 
                     : now.toLocaleDateString('pt-BR', { weekday: 'long' }).toUpperCase()
-                ) : appMode === 'speed' ? 'PEAK VELOCITY' : ''}
+                ) : appMode === 'speed' ? 'PEAK VELOCITY' :
+                    appMode === 'scanner' ? 'SYSTEM STATUS' :
+                    appMode === 'radar' ? 'NETWORK STATUS' : ''}
               </textPath>
             </text>
           </svg>
@@ -952,13 +1159,13 @@ export default function App() {
           {appMode === 'stopwatch' && (
             <div className="absolute bottom-[12%] z-30 flex flex-col items-center w-full px-12">
               <div className="flex space-x-4 mb-3">
-                <button onClick={lapOrResetStopwatch} className="flex items-center space-x-1 text-[10px] uppercase tracking-widest border border-neutral-700 px-3 py-1 rounded hover:bg-neutral-800 transition-colors">
+                <button onClick={lapOrResetStopwatch} className={`flex items-center space-x-1 text-[10px] uppercase tracking-widest border px-3 py-1 rounded transition-colors ${ui.controlBtnBorder}`}>
                   {swRunning ? <><Flag size={10} /><span>Lap</span></> : <><RotateCcw size={10} /><span>Reset</span></>}
                 </button>
               </div>
-              <div className="flex flex-col w-full text-[9px] text-neutral-400 space-y-1 max-h-[40px] overflow-hidden">
+              <div className={`flex flex-col w-full text-[9px] ${ui.textMuted} space-y-1 max-h-[40px] overflow-hidden`}>
                 {swLaps.map((lap, i) => (
-                  <div key={i} className="flex justify-between w-full border-b border-neutral-800 pb-0.5">
+                  <div key={i} className={`flex justify-between w-full border-b ${ui.dividerBorder} pb-0.5`}>
                     <span>LAP {swLaps.length - i}</span>
                     <span style={{ color: themeColor }}>{pad(Math.floor(lap / 60000))}:{pad(Math.floor((lap % 60000) / 1000))}.{pad3(lap % 1000)}</span>
                   </div>
@@ -972,32 +1179,30 @@ export default function App() {
               {!tmRunning && tmRemaining === 0 ? (
                 <div className="flex space-x-2">
                   {[1, 5, 10].map(m => (
-                    <button key={m} onClick={() => addTimerTime(m)} className="text-[10px] border border-neutral-700 px-3 py-1.5 rounded hover:bg-neutral-800 transition-colors" style={{ color: themeColor }}>
+                    <button key={m} onClick={() => addTimerTime(m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: themeColor }}>
                       +{m}m
                     </button>
                   ))}
                 </div>
               ) : (
-                <button onClick={resetTimer} className="flex items-center space-x-1 text-[10px] uppercase tracking-widest border border-neutral-700 px-4 py-1.5 rounded hover:bg-neutral-800 transition-colors">
+                <button onClick={resetTimer} className={`flex items-center space-x-1 text-[10px] uppercase tracking-widest border px-4 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`}>
                   <RotateCcw size={12} /><span>Reset</span>
                 </button>
               )}
             </div>
           )}
 
-
-
           {/* Hexagonal Real-World Complications */}
           {/* Top Left: Battery */}
           <div className="absolute top-[20%] left-[6%] sm:left-[8%] z-30 flex flex-col items-center opacity-70">
-             {battery?.charging ? <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} /> : <Battery className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mb-1" />}
-             <span className="text-[8px] sm:text-[9px]" style={battery?.charging ? { color: themeColor } : {}}>{battery ? `${Math.round(battery.level * 100)}%` : '---'}</span>
+             {battery?.charging ? <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} /> : <Battery className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${ui.iconMuted} mb-1`} />}
+             <span className={`text-[8px] sm:text-[9px] ${ui.textMuted}`} style={battery?.charging ? { color: themeColor } : {}}>{battery ? `${Math.round(battery.level * 100)}%` : '---'}</span>
           </div>
 
           {/* Bottom Left: Network */}
           <div className="absolute bottom-[20%] left-[6%] sm:left-[8%] z-30 flex flex-col items-center opacity-70">
-             {network === 'offline' ? <WifiOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mb-1" /> : <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} />}
-             <span className="text-[8px] sm:text-[9px]" style={network !== 'offline' ? { color: themeColor } : {}}>{network ? network.toUpperCase() : '---'}</span>
+             {network === 'offline' ? <WifiOff className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${ui.iconMuted} mb-1`} /> : <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} />}
+             <span className={`text-[8px] sm:text-[9px] ${ui.textMuted}`} style={network !== 'offline' ? { color: themeColor } : {}}>{network ? network.toUpperCase() : '---'}</span>
           </div>
 
           {/* Center Left: Sun Times */}
@@ -1012,20 +1217,20 @@ export default function App() {
 
           {/* Top Right: Weather */}
           <div className="absolute top-[20%] right-[6%] sm:right-[8%] z-30 flex flex-col items-center opacity-70">
-             <Thermometer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mb-1" style={weather.temp !== null ? { color: themeColor } : {}} />
-             <span className="text-[8px] sm:text-[9px]" style={weather.temp !== null ? { color: themeColor } : {}}>{weather.temp !== null ? `${Math.round(weather.temp)}°C` : '---'}</span>
+             <Thermometer className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${ui.iconMuted} mb-1`} style={weather.temp !== null ? { color: themeColor } : {}} />
+             <span className={`text-[8px] sm:text-[9px] ${ui.textMuted}`} style={weather.temp !== null ? { color: themeColor } : {}}>{weather.temp !== null ? `${Math.round(weather.temp)}°C` : '---'}</span>
           </div>
 
           {/* Bottom Right: Mic */}
-          <button onClick={toggleMic} className="absolute bottom-[20%] right-[6%] sm:right-[8%] z-30 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
-             {micEnabled ? <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} /> : <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mb-1" />}
+          <button onClick={toggleMic} className={`absolute bottom-[20%] right-[6%] sm:right-[8%] z-30 flex flex-col items-center opacity-70 hover:opacity-100 ${ui.textMuted} transition-opacity`}>
+             {micEnabled ? <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 mb-1" style={{ color: themeColor }} /> : <MicOff className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${ui.iconMuted} mb-1`} />}
              <span className="text-[8px] sm:text-[9px]" style={micEnabled ? { color: themeColor } : {}}>{decibels !== null ? `${decibels}dB` : 'MIC'}</span>
           </button>
 
           {/* Center Right: GPS */}
           <div className="absolute top-1/2 -translate-y-1/2 right-[2%] sm:right-[4%] z-30 flex flex-col items-center opacity-70">
-             <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mb-1" style={hasGps ? { color: themeColor } : {}} />
-             <span className="text-[8px] sm:text-[9px]" style={hasGps ? { color: themeColor } : {}}>{hasGps ? 'GPS' : 'OFF'}</span>
+             <MapPin className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${ui.iconMuted} mb-1`} style={hasGps ? { color: themeColor } : {}} />
+             <span className={`text-[8px] sm:text-[9px] ${ui.textMuted}`} style={hasGps ? { color: themeColor } : {}}>{hasGps ? 'GPS' : 'OFF'}</span>
           </div>
 
         </div>

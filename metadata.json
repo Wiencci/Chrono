@@ -3,7 +3,8 @@
   "description": "",
   "requestFramePermissions": [
     "geolocation",
-    "microphone"
+    "microphone",
+    "camera"
   ],
   "majorCapabilities": [],
   "C7": [],
