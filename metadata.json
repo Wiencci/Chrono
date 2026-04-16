@@ -1,7 +1,10 @@
 {
   "name": "DECIMALCHRONO",
   "description": "",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ],
   "majorCapabilities": [],
   "C7": [],
   "Xp": []
