@@ -153,18 +153,18 @@ export const ClockRings: React.FC<ClockRingsProps> = ({
       {/* Water Tracker Fill */}
       {appMode === 'water' && (
         <g>
-          <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke="#2563eb" strokeWidth="20" opacity="0.1" />
-          <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke="#3b82f6" strokeWidth="20" strokeLinecap="round"
+          <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke={themeColor} strokeWidth="20" opacity="0.1" />
+          <circle cx="200" cy="200" r={radiusHours - 10} fill="none" stroke={themeColor} strokeWidth="20" strokeLinecap="round"
             strokeDasharray={2 * Math.PI * (radiusHours - 10)} 
             strokeDashoffset={2 * Math.PI * (radiusHours - 10) * (1 - Math.min(waterIntake / waterGoal, 1))}
-            style={{ transition: 'stroke-dashoffset 1s ease-out', filter: 'drop-shadow(0 0 10px #3b82f6)' }}
+            style={{ transition: 'stroke-dashoffset 1s ease-out', filter: `drop-shadow(0 0 10px ${themeColor})` }}
           />
         </g>
       )}
 
       {/* Sleep Breathing Ring */}
       {appMode === 'sleep' && isSleeping && (
-        <circle cx="200" cy="200" r="150" fill="none" stroke="#6366f1" strokeWidth="4" 
+        <circle cx="200" cy="200" r="150" fill="none" stroke={themeColor} strokeWidth="4" 
           className="animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]" 
           opacity="0.3"
         />

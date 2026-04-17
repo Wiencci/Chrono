@@ -37,9 +37,9 @@ export const PedometerModule: React.FC<PedometerModuleProps> = ({ steps, themeCo
         <div className="flex flex-col items-center space-y-1">
           <div className="flex items-center space-x-2">
             <TrendingUp size={12} style={{ color: themeColor }} />
-            <span className="text-[9px] uppercase tracking-widest opacity-60">Distância</span>
+            <span className="text-[9px] uppercase tracking-widest opacity-60" style={{ color: ui.textMain }}>Distância</span>
           </div>
-          <p className="text-lg font-mono">{distanceKm.toFixed(2)}<span className="text-[10px] ml-1 opacity-50">KM</span></p>
+          <p className="text-lg font-mono" style={{ color: ui.textMain }}>{distanceKm.toFixed(2)}<span className="text-[10px] ml-1 opacity-50">KM</span></p>
         </div>
 
         <div className="flex flex-col items-center space-y-1">
@@ -50,15 +50,15 @@ export const PedometerModule: React.FC<PedometerModuleProps> = ({ steps, themeCo
                className="w-2 h-2 rounded-full" 
                style={{ backgroundColor: themeColor }} 
             />
-            <span className="text-[9px] uppercase tracking-widest opacity-60">Energia</span>
+            <span className="text-[9px] uppercase tracking-widest opacity-60" style={{ color: ui.textMain }}>Energia</span>
           </div>
-          <p className="text-lg font-mono">{calories.toFixed(0)}<span className="text-[10px] ml-1 opacity-50">CAL</span></p>
+          <p className="text-lg font-mono" style={{ color: ui.textMain }}>{calories.toFixed(0)}<span className="text-[10px] ml-1 opacity-50">CAL</span></p>
         </div>
       </div>
       
       <div className="w-full h-[1px] opacity-20" style={{ backgroundColor: themeColor }} />
       
-      <p className="text-[8px] uppercase tracking-[0.2em] opacity-50 text-center max-w-[200px]">
+      <p className="text-[8px] uppercase tracking-[0.2em] opacity-50 text-center max-w-[200px]" style={{ color: ui.textMain }}>
         Otimizando eficiência de movimento para missões prolongadas.
       </p>
     </div>

@@ -36,7 +36,7 @@ export function useAppLogic() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [aiEnabled, setAiEnabled] = useState(true);
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [baseLocation, setBaseLocation] = useState<{lat: number, lng: number} | null>(null);
   const [stealthMode, setStealthMode] = useState(false);
 
@@ -185,9 +185,14 @@ export function useAppLogic() {
 
   const speakAI = async (text: string) => {
     if (!aiEnabled || !voiceEnabled) return;
-    const base64 = await generateVoice(text);
-    if (base64) {
-      playBase64PCM(base64);
+    try {
+      const base64 = await generateVoice(text);
+      if (base64) {
+        playBase64PCM(base64);
+      }
+    } catch (e) {
+      console.error("AI Voice Error:", e);
+      // Fallback ou desabilitar
     }
   };
 
@@ -231,15 +236,25 @@ export function useAppLogic() {
   };
 
   const analyzeMissionLogs = async () => {
+    if (!aiEnabled) {
+      setAiBriefing("SISTEMA DE I.A. DESATIVADO.");
+      return;
+    }
     if (missionLogs.length === 0) {
       setAiBriefing("SEM DADOS PARA ANÁLISE.");
       return;
     }
     setAiBriefing("PROCESSANDO INTELIGÊNCIA...");
-    const analysis = await analyzeLogs(missionLogs);
-    setAiBriefing(`ANÁLISE: ${analysis.toUpperCase()}`);
-    vibrate([100, 50, 100]);
-    speakAI(analysis);
+    try {
+      const analysis = await analyzeLogs(missionLogs);
+      setAiBriefing(`ANÁLISE: ${analysis.toUpperCase()}`);
+      vibrate([100, 50, 100]);
+      speakAI(analysis);
+    } catch (error) {
+      console.error("Analysis Error:", error);
+      setAiBriefing("FALHA NA COMUNICAÇÃO DE I.A.");
+      speakAI("Erro de conexão com o comando central.");
+    }
   };
 
   const fetchBriefing = async () => {
@@ -248,17 +263,22 @@ export function useAppLogic() {
       return;
     }
     setAiBriefing("REQUISITANDO DADOS...");
-    const briefing = await getTacticalBriefing({
-      battery: battery?.level ? Math.round(battery.level * 100) : 100,
-      charging: battery?.charging || false,
-      weather: weather.temp || 20,
-      time: now.toLocaleTimeString(),
-      mode: displayMode,
-      appMode
-    });
-    setAiBriefing(briefing.toUpperCase());
-    vibrate([50]);
-    speakAI(briefing);
+    try {
+      const briefing = await getTacticalBriefing({
+        battery: battery?.level ? Math.round(battery.level * 100) : 100,
+        charging: battery?.charging || false,
+        weather: weather.temp || 20,
+        time: now.toLocaleTimeString(),
+        mode: displayMode,
+        appMode
+      });
+      setAiBriefing(briefing.toUpperCase());
+      vibrate([50]);
+      speakAI(briefing);
+    } catch (error) {
+      console.error("Briefing Error:", error);
+      setAiBriefing("FALHA NA TRANMISSÃO LOCAL.");
+    }
   };
 
   useEffect(() => {

@@ -40,6 +40,7 @@ interface OuterRingProps {
   isScanningBt: boolean;
   voiceEnabled: boolean;
   aiEnabled: boolean;
+  stealthMode: boolean;
 }
 
 export const OuterRing: React.FC<OuterRingProps> = ({

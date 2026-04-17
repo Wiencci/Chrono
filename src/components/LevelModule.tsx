@@ -46,12 +46,12 @@ export const LevelModule: React.FC<LevelModuleProps> = ({ motion: m, themeColor,
 
       <div className="grid grid-cols-2 gap-4 w-full text-center">
         <div className="space-y-1">
-          <p className="text-[8px] uppercase tracking-widest opacity-50">Pitch (X)</p>
-          <p className="text-sm font-mono">{m.x.toFixed(2)}°</p>
+          <p className="text-[8px] uppercase tracking-widest opacity-50" style={{ color: ui.textMain }}>Pitch (X)</p>
+          <p className="text-sm font-mono" style={{ color: ui.textMain }}>{m.x.toFixed(2)}°</p>
         </div>
         <div className="space-y-1">
-          <p className="text-[8px] uppercase tracking-widest opacity-50">Roll (Y)</p>
-          <p className="text-sm font-mono">{m.y.toFixed(2)}°</p>
+          <p className="text-[8px] uppercase tracking-widest opacity-50" style={{ color: ui.textMain }}>Roll (Y)</p>
+          <p className="text-sm font-mono" style={{ color: ui.textMain }}>{m.y.toFixed(2)}°</p>
         </div>
       </div>
 

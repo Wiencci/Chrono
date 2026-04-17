@@ -59,7 +59,7 @@ export const CenterButton: React.FC<CenterButtonProps> = ({
       case 'water':
         return <Droplet className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'sleep':
-        return <Bed className={`w-7 h-7 sm:w-9 sm:h-9 ${isSleeping ? 'animate-pulse' : ''}`} style={{ color: isSleeping ? '#818cf8' : themeColor, filter: `drop-shadow(0 0 10px ${isSleeping ? '#818cf8' : themeColor})` }} />;
+        return <Bed className={`w-7 h-7 sm:w-9 sm:h-9 ${isSleeping ? 'animate-pulse' : ''}`} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'zen':
         return <Wind className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'level':

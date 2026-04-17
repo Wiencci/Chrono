@@ -48,8 +48,8 @@ export const WaypointModule: React.FC<WaypointModuleProps> = ({ baseLocation, cu
       {!baseLocation ? (
         <div className="text-center space-y-4 py-8">
           <Target size={48} className="mx-auto opacity-20" style={{ color: themeColor }} />
-          <p className="text-[10px] uppercase tracking-[0.3em] opacity-60">Nenhum waypoint definido</p>
-          <p className="text-[8px] opacity-40 uppercase">Clique no centro para marcar o local atual como BASE</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] opacity-60" style={{ color: ui.textMain }}>Nenhum waypoint definido</p>
+          <p className="text-[8px] opacity-40 uppercase" style={{ color: ui.textMain }}>Clique no centro para marcar o local atual como BASE</p>
         </div>
       ) : (
         <>
@@ -64,24 +64,24 @@ export const WaypointModule: React.FC<WaypointModuleProps> = ({ baseLocation, cu
             </motion.div>
             
             <div className="text-center z-10">
-              <p className="text-[9px] uppercase tracking-[0.2em] opacity-40">Distância</p>
-              <p className="text-2xl font-mono font-bold">
+              <p className="text-[9px] uppercase tracking-[0.2em] opacity-40" style={{ color: ui.textMain }}>Distância</p>
+              <p className="text-2xl font-mono font-bold" style={{ color: ui.textMain }}>
                 {distance && distance > 1000 ? `${(distance / 1000).toFixed(1)}KM` : `${Math.round(distance || 0)}M`}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 w-full">
-            <div className="bg-black/20 p-2 rounded border border-white/5 text-center">
-              <p className="text-[8px] uppercase tracking-widest opacity-40 mb-1">Status</p>
+            <div className="p-2 rounded border border-white/5 text-center" style={{ backgroundColor: `${themeColor}10` }}>
+              <p className="text-[8px] uppercase tracking-widest opacity-40 mb-1" style={{ color: ui.textMain }}>Status</p>
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] font-bold">BASE ATIVA</span>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: themeColor }} />
+                <span className="text-[10px] font-bold" style={{ color: themeColor }}>BASE ATIVA</span>
               </div>
             </div>
-            <div className="bg-black/20 p-2 rounded border border-white/5 text-center">
-              <p className="text-[8px] uppercase tracking-widest opacity-40 mb-1">Vetor</p>
-              <p className="text-[10px] font-bold">{Math.round(bearing || 0)}° MAG</p>
+            <div className="p-2 rounded border border-white/5 text-center" style={{ backgroundColor: `${themeColor}10` }}>
+              <p className="text-[8px] uppercase tracking-widest opacity-40 mb-1" style={{ color: ui.textMain }}>Vetor</p>
+              <p className="text-[10px] font-bold" style={{ color: ui.textMain }}>{Math.round(bearing || 0)}° MAG</p>
             </div>
           </div>
         </>

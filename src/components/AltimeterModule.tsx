@@ -21,7 +21,7 @@ export const AltimeterModule: React.FC<AltimeterModuleProps> = ({ altitude, them
 
         <div className="text-center z-10">
           <Mountain size={28} style={{ color: themeColor }} className="mx-auto mb-2 opacity-60" />
-          <p className="text-[10px] uppercase tracking-[0.4em] opacity-40 mb-1">Altitude (MSL)</p>
+          <p className="text-[10px] uppercase tracking-[0.4em] opacity-40 mb-1" style={{ color: ui.textMain }}>Altitude (MSL)</p>
           <h2 className="text-5xl font-mono font-bold tracking-tighter" style={{ color: ui.textMain }}>
             {altitude !== null ? Math.round(altitude) : '---'}
             <span className="text-lg ml-1 opacity-50 font-normal">M</span>
@@ -30,16 +30,16 @@ export const AltimeterModule: React.FC<AltimeterModuleProps> = ({ altitude, them
       </div>
 
       <div className="grid grid-cols-2 gap-4 w-full">
-        <div className="flex flex-col items-center p-3 rounded bg-black/10 border border-white/5">
+        <div className="flex flex-col items-center p-3 rounded border border-white/5" style={{ backgroundColor: `${themeColor}10` }}>
           <Wind size={14} style={{ color: themeColor }} className="mb-1 opacity-60" />
-          <p className="text-[8px] uppercase tracking-widest opacity-40">Pressão</p>
-          <p className="text-xs font-mono font-bold">1013.2<span className="text-[8px] ml-0.5 opacity-50">hPa</span></p>
+          <p className="text-[8px] uppercase tracking-widest opacity-40" style={{ color: ui.textMain }}>Pressão</p>
+          <p className="text-xs font-mono font-bold" style={{ color: ui.textMain }}>1013.2<span className="text-[8px] ml-0.5 opacity-50">hPa</span></p>
         </div>
         
-        <div className="flex flex-col items-center p-3 rounded bg-black/10 border border-white/5">
+        <div className="flex flex-col items-center p-3 rounded border border-white/5" style={{ backgroundColor: `${themeColor}10` }}>
           <Activity size={14} style={{ color: themeColor }} className="mb-1 opacity-60" />
-          <p className="text-[8px] uppercase tracking-widest opacity-40">Delta-V</p>
-          <p className="text-xs font-mono font-bold">+0.0<span className="text-[8px] ml-0.5 opacity-50">m/s</span></p>
+          <p className="text-[8px] uppercase tracking-widest opacity-40" style={{ color: ui.textMain }}>Delta-V</p>
+          <p className="text-xs font-mono font-bold" style={{ color: ui.textMain }}>+0.0<span className="text-[8px] ml-0.5 opacity-50">m/s</span></p>
         </div>
       </div>
 
