@@ -81,7 +81,7 @@ export const WaypointModule: React.FC<WaypointModuleProps> = ({ baseLocation, cu
             </div>
             <div className="p-2 rounded border border-white/5 text-center" style={{ backgroundColor: `${themeColor}10` }}>
               <p className="text-[8px] uppercase tracking-widest opacity-40 mb-1" style={{ color: ui.textMain }}>Vetor</p>
-              <p className="text-[10px] font-bold" style={{ color: ui.textMain }}>{Math.round(bearing || 0)}° MAG</p>
+              <p className="text-[10px] font-bold" style={{ color: ui.textMain }}>{Math.round((bearing || 0) * (100 / 360))}°D MAG</p>
             </div>
           </div>
         </>

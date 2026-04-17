@@ -120,7 +120,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           {appMode === 'orbit' && 'ORBITAL'}
           {appMode === 'nav' && (heading !== null ? 
             getCardinal(heading, displayMode) : 
-            (speedData.latitude !== null ? `${Math.abs(speedData.latitude).toFixed(4)}° ${speedData.latitude >= 0 ? 'N' : 'S'}` : 'SEARCHING...'))}
+            (speedData.latitude !== null ? `${Math.abs((speedData.latitude / 90) * 25).toFixed(3)}°D ${speedData.latitude >= 0 ? 'N' : 'S'}` : 'SEARCHING...'))}
           {appMode === 'sonar' && 'LISTENING'}
           {appMode === 'decrypt' && decryptData.chars.slice(0, 6).join('')}
           {appMode === 'water' && 'INTAKE'}
@@ -178,10 +178,10 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           {appMode === 'clock' ? (displayMode === 'decimal' ? 'DECIMAL.TIME' : 'STANDARD.TIME') :
            appMode === 'stopwatch' ? 'CHRONOGRAPH' :
            appMode === 'timer' ? 'SYSTEM PURGE' :
-           appMode === 'speed' ? 'VELOCITY KM/HD' :
+           appMode === 'speed' ? 'VELOCITY DK/H' :
            appMode === 'scanner' ? 'TARGET ACQUISITION' :
            appMode === 'orbit' ? 'HELIOCENTRIC' :
-           appMode === 'nav' ? 'LATITUDE POS' :
+           appMode === 'nav' ? 'LATITUDE POS (D°)' :
            appMode === 'sonar' ? 'ACOUSTIC SENSOR' :
            appMode === 'decrypt' ? 'SYS INTRUSION' :
            appMode === 'water' ? 'H2O TRACKER' :
@@ -201,7 +201,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           {appMode === 'scanner' && 'IDLE'}
           {appMode === 'radar' && (isScanningBt ? 'SCANNING' : 'STANDBY')}
           {appMode === 'orbit' && `J2000 + ${Math.floor(daysSinceJ2000)}`}
-          {appMode === 'nav' && (speedData.longitude !== null ? `${Math.abs(speedData.longitude).toFixed(4)}° ${speedData.longitude >= 0 ? 'E' : 'W'}` : 'SEARCHING...')}
+          {appMode === 'nav' && (speedData.longitude !== null ? `${Math.abs((speedData.longitude / 180) * 50).toFixed(3)}°D ${speedData.longitude >= 0 ? 'E' : 'W'}` : 'SEARCHING...')}
           {appMode === 'sonar' && `${Math.round(100 - (audioLevels[0] || 0) / 255 * 100)}% CLR`}
           {appMode === 'decrypt' && decryptData.chars.slice(6, 12).join('')}
           {appMode === 'water' && `${waterIntake} / ${waterGoal} ML`}
@@ -218,7 +218,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           ) : appMode === 'speed' ? 'PEAK VELOCITY' :
               appMode === 'scanner' ? 'SYSTEM STATUS' :
               appMode === 'orbit' ? 'ABSOLUTE EPOCH' :
-              appMode === 'nav' ? 'LONGITUDE POS' :
+              appMode === 'nav' ? 'LONGITUDE POS (D°)' :
               appMode === 'sonar' ? 'SIGNAL TO NOISE' :
               appMode === 'decrypt' ? 'DECRYPTING...' :
               appMode === 'water' ? 'HYDRATION LEVEL' :

@@ -24,7 +24,7 @@ export const AltimeterModule: React.FC<AltimeterModuleProps> = ({ altitude, them
           <p className="text-[10px] uppercase tracking-[0.4em] opacity-40 mb-1" style={{ color: ui.textMain }}>Altitude (MSL)</p>
           <h2 className="text-5xl font-mono font-bold tracking-tighter" style={{ color: ui.textMain }}>
             {altitude !== null ? Math.round(altitude) : '---'}
-            <span className="text-lg ml-1 opacity-50 font-normal">M</span>
+            <span className="text-lg ml-1 opacity-50 font-normal">AM</span>
           </h2>
         </div>
       </div>
@@ -45,7 +45,7 @@ export const AltimeterModule: React.FC<AltimeterModuleProps> = ({ altitude, them
 
       <div className="text-center">
         <p className="text-[9px] uppercase tracking-[0.2em]" style={{ color: themeColor }}>
-           {weather.temp !== null ? `Temperatura externa: ${weather.temp}°C` : 'Analisando condições...'}
+           {weather.temp !== null ? `Temperatura externa: ${weather.temp}°D` : 'Analisando condições...'}
         </p>
       </div>
     </div>

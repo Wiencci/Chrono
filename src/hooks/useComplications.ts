@@ -97,7 +97,7 @@ export function useComplications(arEnabled: boolean) {
       });
     }
 
-    // GPS & Weather
+    // GPS
     if ('geolocation' in navigator) {
       const geoId = navigator.geolocation.watchPosition((pos) => {
         const { latitude, longitude, altitude: alt } = pos.coords;
@@ -105,16 +105,6 @@ export function useComplications(arEnabled: boolean) {
         setSunTimes(getSunTimes(latitude, longitude, new Date()));
         setHasGps(true);
         if (alt !== null) setAltitude(alt);
-        
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.current_weather) {
-              setWeather({ temp: data.current_weather.temperature });
-            }
-          })
-          .catch(err => console.error('Failed to fetch weather', err));
-          
       }, () => {
         setHasGps(false);
         console.warn('GPS denied, using default sun times.');
@@ -138,6 +128,34 @@ export function useComplications(arEnabled: boolean) {
       window.removeEventListener('devicemotion', handleMotion);
     };
   }, []);
+
+  // Weather fetcher (Separate effect to avoid over-fetching on every GPS vibration)
+  useEffect(() => {
+    if (!coords) return;
+    
+    let isMounted = true;
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current_weather=true`);
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        if (isMounted && data.current_weather) {
+          setWeather({ temp: data.current_weather.temperature });
+        }
+      } catch (err) {
+        // Silent fail for weather to avoid polluting console with fetch errors on flaky networks
+        if (isMounted) console.debug('Weather fetch skipped or failed.');
+      }
+    };
+
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 1000 * 60 * 15); // Every 15 minutes
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [coords?.lat, coords?.lng]);
 
   return { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords, requestPermissions };
 }

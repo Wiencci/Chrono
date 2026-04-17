@@ -14,12 +14,17 @@ export const ManualOverlay: React.FC<ManualOverlayProps> = ({ isOpen, onClose, t
     {
       title: 'CRONOMETRAGEM DECIMAL',
       icon: Clock,
-      content: 'O sistema utiliza o padrão revolucionário de 10 horas por dia, 100 minutos por hora e 100 segundos por minuto. Cada segundo decimal equivale a 0.864 segundos padrão.'
+      content: 'Sistema de 10 horas/dia. Lembretes táticos operam no ciclo decimal (ex: Alerta de Sono às 9.5hD / Alerta de Hidratação a cada 2hD).'
     },
     {
-      title: 'CALENDÁRIO DE MISSÃO',
+      title: 'METROLOGIA UNIVERSAL',
       icon: Activity,
-      content: 'Ano dividido em 10 Camadas (Layers) de ~36 dias. Cada camada possui 4 Ciclos (Weeks) de 9 dias: Boot, Sync, Pulse, Link, Core, Drift, Cache, Loop, Null.'
+      content: 'Escala Centesimal: Temperatura (°D) de 0 a 100 baseada na água. Altitude Metrical (AM). Velocidade em Nós Decimais (DK/H).'
+    },
+    {
+      title: 'GEOMETRIA DECIMAL (°D)',
+      icon: Scan,
+      content: 'Circunferência tática de 100°D. Norte: 0°D | Leste: 25°D | Sul: 50°D | Oeste: 75°D. Coordenadas GPS mapeadas no plano 0-100D.'
     },
     {
       title: 'HUD TÁTICA (TELEMETRY)',

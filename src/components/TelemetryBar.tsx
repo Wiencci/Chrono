@@ -26,7 +26,7 @@ export const TelemetryBar: React.FC<TelemetryBarProps> = ({
       value: battery !== null ? `${Math.round(battery.level * 100)}%` : '---', 
       active: battery !== null && (battery.level < 0.2 || battery.charging) 
     },
-    { id: 'temp', icon: Thermometer, value: weather.temp !== null ? `${Math.round(weather.temp)}°` : '---' },
+    { id: 'temp', icon: Thermometer, value: weather.temp !== null ? `${Math.round(weather.temp)}°D` : '---' },
     { id: 'link', icon: network === 'offline' ? WifiOff : Wifi, value: network?.slice(0, 3).toUpperCase() || '---' },
     { id: 'gps', icon: MapPin, value: hasGps ? 'GPS' : 'OFF' },
     { id: 'audio', icon: micEnabled ? Mic : MicOff, value: decibels !== null ? `${decibels}dB` : 'OFF', active: micEnabled, onClick: toggleMic },

@@ -268,6 +268,16 @@ export function useAppLogic() {
     }
   };
 
+  const batteryRef = useRef(battery);
+  const weatherRef = useRef(weather);
+  const appModeRef = useRef(appMode);
+  const displayModeRef = useRef(displayMode);
+
+  useEffect(() => { batteryRef.current = battery; }, [battery]);
+  useEffect(() => { weatherRef.current = weather; }, [weather]);
+  useEffect(() => { appModeRef.current = appMode; }, [appMode]);
+  useEffect(() => { displayModeRef.current = displayMode; }, [displayMode]);
+
   const fetchBriefing = async () => {
     if (!aiEnabled) {
       setAiBriefing("SISTEMA DE I.A. DESATIVADO.");
@@ -276,12 +286,12 @@ export function useAppLogic() {
     setAiBriefing("REQUISITANDO DADOS...");
     try {
       const briefing = await getTacticalBriefing({
-        battery: battery?.level ? Math.round(battery.level * 100) : 100,
-        charging: battery?.charging || false,
-        weather: weather.temp || 20,
-        time: now.toLocaleTimeString(),
-        mode: displayMode,
-        appMode
+        battery: batteryRef.current?.level ? Math.round(batteryRef.current.level * 100) : 100,
+        charging: batteryRef.current?.charging || false,
+        weather: weatherRef.current.temp || 20,
+        time: new Date().toLocaleTimeString(),
+        mode: displayModeRef.current,
+        appMode: appModeRef.current
       });
       setAiBriefing(briefing.toUpperCase());
       vibrate([50]);
@@ -293,31 +303,33 @@ export function useAppLogic() {
   };
 
   useEffect(() => {
+    if (!aiEnabled) return;
     const interval = setInterval(fetchBriefing, 60000 * 5); // Cada 5 min
     fetchBriefing();
     return () => clearInterval(interval);
-  }, [battery, weather]);
+  }, [aiEnabled]);
 
   // Health and Sleep Reminders
   useEffect(() => {
     const checkReminders = () => {
       if (!voiceEnabled) return;
-      const h = now.getHours();
+      const dTime = getDecimalTime(now);
+      const h = dTime.hours;
       
-      // Water reminder every 2 hours between 8h and 20h
-      if (h >= 8 && h <= 20 && h % 2 === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+      // Water reminder every 2 decimal hours between 3.5h and 8.5h (approx 8 AM and 8 PM)
+      if (h >= 3.5 && h <= 8.5 && Math.floor(h) % 2 === 0 && dTime.minutes === 0 && dTime.seconds === 0) {
         if (waterIntake < 2000) {
           speakAI("Lembrete de hidratação. Seus níveis de H2O estão abaixo do ideal tático.");
         }
       }
 
-      // Sleep reminder at 23h
-      if (h === 23 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+      // Sleep reminder at 9.5h (approx 23h standard)
+      if (h === 9 && dTime.minutes === 50 && dTime.seconds === 0) {
         speakAI("Atenção operador. Horário de repouso recomendado para manter eficiência cognitiva.");
       }
     };
     checkReminders();
-  }, [now.getMinutes(), now.getSeconds(), voiceEnabled]);
+  }, [now.getSeconds(), voiceEnabled]);
 
   const handleCenterClick = () => {
     if (appMode === 'clock') toggleMode();

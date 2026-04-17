@@ -38,14 +38,15 @@ export async function getTacticalBriefing(data: {
     const prompt = `
       You are an tactical AI advisor for a futuristic survival watch system.
       Provide a very short, immersive tactical briefing (max 20 words) based on these status:
-      - Battery: ${data.battery}% ${data.charging ? '(Charging)' : ''}
-      - Temp: ${data.weather}°C
-      - Time: ${data.time}
+      - Battery: ${data.battery}% ${data.charging ? '(Em Carga)' : ''}
+      - Temp: ${data.weather}°D (Decimal Degrees)
+      - Time: ${data.time} (Decimal Hours 0-10)
       - Display Mode: ${data.mode}
       - App Module: ${data.appMode}
       
       Tone: Serious, tactical, efficient, futuristic.
       Language: Portuguese (Brazil).
+      Always use decimal terminology (hours 0-10, degrees 0-100D).
     `;
 
     const response = await ai.models.generateContent({
