@@ -1,10 +1,10 @@
 import React from 'react';
-import { Battery, Thermometer, WifiOff, Wifi, MapPin, Mic, MicOff, Sunrise, Sunset } from 'lucide-react';
+import { Battery, BatteryCharging, Thermometer, WifiOff, Wifi, MapPin, Mic, MicOff, Sunrise, Sunset } from 'lucide-react';
 
 interface TelemetryBarProps {
   themeColor: string;
   ui: any;
-  battery: number | null;
+  battery: { level: number; charging: boolean } | null;
   weather: { temp: number | null, desc: string };
   network: string;
   hasGps: boolean;
@@ -20,7 +20,12 @@ export const TelemetryBar: React.FC<TelemetryBarProps> = ({
   themeColor, ui, battery, weather, network, hasGps, micEnabled, decibels, isDay, sunTimes, displayMode, toggleMic
 }) => {
   const telemetryData = [
-    { id: 'bat', icon: Battery, value: battery !== null ? `${Math.round(battery * 100)}%` : '---', active: battery !== null && battery < 0.2 },
+    { 
+      id: 'bat', 
+      icon: (battery?.charging) ? BatteryCharging : Battery, 
+      value: battery !== null ? `${Math.round(battery.level * 100)}%` : '---', 
+      active: battery !== null && (battery.level < 0.2 || battery.charging) 
+    },
     { id: 'temp', icon: Thermometer, value: weather.temp !== null ? `${Math.round(weather.temp)}°` : '---' },
     { id: 'link', icon: network === 'offline' ? WifiOff : Wifi, value: network?.slice(0, 3).toUpperCase() || '---' },
     { id: 'gps', icon: MapPin, value: hasGps ? 'GPS' : 'OFF' },
@@ -36,11 +41,11 @@ export const TelemetryBar: React.FC<TelemetryBarProps> = ({
           <div 
             key={item.id} 
             onClick={item.onClick}
-            className={`flex flex-col items-center justify-center p-1.5 w-10 h-10 sm:w-12 sm:h-12 bg-black/40 backdrop-blur-md rounded-xl border pointer-events-auto ${item.onClick ? 'cursor-pointer hover:bg-black/60 active:scale-95 transition-all' : ''}`} 
+            className={`flex flex-col items-center justify-center p-1.5 w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-md rounded-xl border pointer-events-auto transition-all duration-300 ${ui.bgClock} ${item.onClick ? 'cursor-pointer hover:bg-black/10 active:scale-95' : ''}`} 
             style={{ borderColor: `${themeColor}20`, color: item.active ? themeColor : ui.iconMuted }}
           >
             <Icon size={14} className={item.active ? 'animate-pulse' : ''} />
-            <span className="text-[7px] font-bold mt-1 tracking-wider" style={{ color: item.active ? themeColor : ui.textVeryMuted }}>
+            <span className="text-[7px] font-bold mt-1 tracking-wider" style={{ color: item.active ? themeColor : ui.textMain }}>
               {item.value}
             </span>
           </div>

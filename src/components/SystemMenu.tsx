@@ -23,24 +23,25 @@ export interface SystemMenuProps {
   activeTheme: Theme;
   changeTheme: (theme: Theme) => void;
   openManual: () => void;
+  requestPermissions: () => void;
 }
 
 export const SystemMenu: React.FC<SystemMenuProps> = ({
   themeColor, ui, arEnabled, toggleAR, isLightMode, toggleLightMode,
   soundEnabled, toggleSound, aiEnabled, toggleAiEnabled, voiceEnabled,
   toggleVoice, displayMode, toggleMode, stealthMode, toggleStealthMode,
-  activeTheme, changeTheme, openManual
+  activeTheme, changeTheme, openManual, requestPermissions
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const tools = [
     { id: 'stealth', icon: ShieldAlert, label: 'STEALTH PROTOCOL', onClick: toggleStealthMode, active: stealthMode },
     { id: 'ar', icon: Eye, label: 'AR SCANNERS', onClick: toggleAR, active: arEnabled },
+    { id: 'sync', icon: RefreshCw, label: 'SYNC HARDWARE', onClick: requestPermissions, active: false },
     { id: 'ai', icon: Brain, label: 'AI CORE LINK', onClick: toggleAiEnabled, active: aiEnabled },
     { id: 'voice', icon: MessageSquare, label: 'VOICE SYNTH', onClick: toggleVoice, active: voiceEnabled },
     { id: 'sound', icon: soundEnabled ? Volume2 : VolumeX, label: 'HAPTIC AUDIO', onClick: toggleSound, active: soundEnabled },
     { id: 'light', icon: isLightMode ? Sun : Moon, label: 'PHOTON THEME', onClick: toggleLightMode, active: isLightMode },
-    { id: 'mode', icon: RefreshCw, label: displayMode === 'decimal' ? 'DCM TIME' : 'STD TIME', onClick: toggleMode, active: displayMode === 'decimal' },
     { id: 'info', icon: Info, label: 'SYSTEM SPECS', onClick: () => { openManual(); setIsOpen(false); }, active: false },
   ];
 

@@ -16,26 +16,84 @@ export function useComplications(arEnabled: boolean) {
   const tiltRef = useRef({ x: 0, y: 0 });
   const lastStepTime = useRef(0);
 
+  const requestPermissions = async () => {
+    // iOS 13+ requires explicit permission for DeviceMotion and Orientation
+    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      try {
+        const permission = await (DeviceOrientationEvent as any).requestPermission();
+        if (permission === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation);
+          window.addEventListener('devicemotion', handleMotion);
+        }
+      } catch (e) {
+        console.error("Sensor permission request failed", e);
+      }
+    }
+    
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  };
+
+  const handleOrientation = (e: DeviceOrientationEvent) => {
+    // Tilt logic
+    if (e.beta !== null && e.gamma !== null) {
+      let x = e.beta - 45;
+      let y = e.gamma;
+      x = Math.max(-30, Math.min(30, x));
+      y = Math.max(-30, Math.min(30, y));
+      tiltRef.current = { x: -x, y: y };
+    }
+
+    // Compass logic
+    const webkitHeading = (e as any).webkitCompassHeading;
+    if (webkitHeading !== undefined) {
+      setHeading(webkitHeading);
+    } else if (e.alpha !== null) {
+      setHeading(360 - e.alpha);
+    }
+  };
+
+  const handleMotion = (e: DeviceMotionEvent) => {
+    if (e.accelerationIncludingGravity) {
+      const { x, y, z } = e.accelerationIncludingGravity;
+      setMotion({ x: x || 0, y: y || 0, z: z || 0 });
+
+      // Simple step counting logic
+      const acc = Math.sqrt((x || 0)**2 + (y || 0)**2 + (z || 0)**2);
+      if (acc > 12) { // Threshold for step
+        const now = Date.now();
+        if (now - lastStepTime.current > 300) { // Min 300ms between steps
+          setSteps(s => s + 1);
+          lastStepTime.current = now;
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     // Network Status
     const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-    const updateNetwork = () => setNetwork(conn?.effectiveType || (navigator.onLine ? 'online' : 'offline'));
+    const updateNetwork = () => {
+      const status = conn?.effectiveType || (navigator.onLine ? 'online' : 'offline');
+      setNetwork(status);
+    };
     
-    if (conn) {
-      updateNetwork();
-      conn.addEventListener('change', updateNetwork);
-    } else {
-      updateNetwork();
-      window.addEventListener('online', updateNetwork);
-      window.addEventListener('offline', updateNetwork);
-    }
+    updateNetwork();
+    if (conn) conn.addEventListener('change', updateNetwork);
+    window.addEventListener('online', updateNetwork);
+    window.addEventListener('offline', updateNetwork);
 
     // Battery
+    const updateBattery = (b: any) => {
+      setBattery({ level: b.level, charging: b.charging });
+    };
+
     if ('getBattery' in navigator) {
       (navigator as any).getBattery().then((b: any) => {
-        setBattery({ level: b.level, charging: b.charging });
-        b.addEventListener('levelchange', () => setBattery(prev => prev ? { ...prev, level: b.level } : null));
-        b.addEventListener('chargingchange', () => setBattery(prev => prev ? { ...prev, charging: b.charging } : null));
+        updateBattery(b);
+        b.addEventListener('levelchange', () => updateBattery(b));
+        b.addEventListener('chargingchange', () => updateBattery(b));
       });
     }
 
@@ -58,53 +116,17 @@ export function useComplications(arEnabled: boolean) {
           .catch(err => console.error('Failed to fetch weather', err));
           
       }, () => {
+        setHasGps(false);
         console.warn('GPS denied, using default sun times.');
-      });
+      }, { enableHighAccuracy: true });
+
+      return () => navigator.geolocation.clearWatch(geoId);
     }
 
-    // Device Orientation & Compass
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      // Tilt logic
-      if (e.beta !== null && e.gamma !== null) {
-        let x = e.beta - 45;
-        let y = e.gamma;
-        x = Math.max(-30, Math.min(30, x));
-        y = Math.max(-30, Math.min(30, y));
-        tiltRef.current = { x: -x, y: y };
-      }
-
-      // Compass logic
-      const webkitHeading = (e as any).webkitCompassHeading;
-      if (webkitHeading !== undefined) {
-        setHeading(webkitHeading);
-      } else if (e.alpha !== null) {
-        setHeading(360 - e.alpha);
-      }
-    };
-
-    if (window.DeviceOrientationEvent) {
+    if (window.DeviceOrientationEvent && typeof (DeviceOrientationEvent as any).requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
     }
-    
-    // Device Motion (Pedometer)
-    const handleMotion = (e: DeviceMotionEvent) => {
-      if (e.accelerationIncludingGravity) {
-        const { x, y, z } = e.accelerationIncludingGravity;
-        setMotion({ x: x || 0, y: y || 0, z: z || 0 });
-
-        // Simple step counting logic
-        const acc = Math.sqrt((x || 0)**2 + (y || 0)**2 + (z || 0)**2);
-        if (acc > 12) { // Threshold for step
-          const now = Date.now();
-          if (now - lastStepTime.current > 300) { // Min 300ms between steps
-            setSteps(s => s + 1);
-            lastStepTime.current = now;
-          }
-        }
-      }
-    };
-
-    if (window.DeviceMotionEvent) {
+    if (window.DeviceMotionEvent && typeof (DeviceMotionEvent as any).requestPermission !== 'function') {
       window.addEventListener('devicemotion', handleMotion);
     }
     
@@ -112,14 +134,10 @@ export function useComplications(arEnabled: boolean) {
       if (conn) conn.removeEventListener('change', updateNetwork);
       window.removeEventListener('online', updateNetwork);
       window.removeEventListener('offline', updateNetwork);
-      if (window.DeviceOrientationEvent) {
-        window.removeEventListener('deviceorientation', handleOrientation);
-      }
-      if (window.DeviceMotionEvent) {
-        window.removeEventListener('devicemotion', handleMotion);
-      }
+      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('devicemotion', handleMotion);
     };
   }, []);
 
-  return { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords };
+  return { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords, requestPermissions };
 }

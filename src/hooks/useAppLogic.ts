@@ -25,7 +25,14 @@ export function useAppLogic() {
   const [isScanningBt, setIsScanningBt] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
   const [decryptData, setDecryptData] = useState<{chars: string[]}>({chars: new Array(12).fill('0')});
-  const [waterIntake, setWaterIntake] = useState(0);
+  const [waterIntake, setWaterIntake] = useState(() => {
+    const saved = localStorage.getItem('water_intake');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('water_intake', waterIntake.toString());
+  }, [waterIntake]);
   const [isSleeping, setIsSleeping] = useState(false);
   const [sleepStart, setSleepStart] = useState<number | null>(null);
   const [lastSleepDuration, setLastSleepDuration] = useState<number>(0);
@@ -40,7 +47,11 @@ export function useAppLogic() {
   const [baseLocation, setBaseLocation] = useState<{lat: number, lng: number} | null>(null);
   const [stealthMode, setStealthMode] = useState(false);
 
-  const { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords } = useComplications(arEnabled);
+  const { 
+    battery, sunTimes, hasGps, weather, network, tiltRef, 
+    heading, altitude, steps, motion, coords, 
+    requestPermissions 
+  } = useComplications(arEnabled);
   const { speedData, resetMaxSpeed } = useSpeedometer(appMode);
   const { swRunning, swTime, swLaps, toggleStopwatch, lapOrResetStopwatch, updateStopwatch } = useStopwatch(soundEnabled, () => soundEngine.playButtonPress());
   const { tmRunning, tmDuration, tmRemaining, addTimerTime, toggleTimer, resetTimer, updateTimer } = useTimer(
@@ -359,6 +370,7 @@ export function useAppLogic() {
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, toggleVoice, toggleAiEnabled, toggleStealthMode, speakTime, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
+    requestPermissions,
     aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
     speakAI,
     aiEnabled, baseLocation, steps, altitude, motion, stealthMode, setStealthMode, coords

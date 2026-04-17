@@ -24,6 +24,7 @@ interface ClockLabelsProps {
   isScanningBt: boolean;
   heading: number | null;
   ui: any;
+  isLightMode: boolean;
 }
 
 const pad = (n: number) => n.toString().padStart(2, '0');
@@ -64,7 +65,8 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
   waterGoal,
   isScanningBt,
   heading,
-  ui
+  ui,
+  isLightMode
 }) => {
   return (
     <svg className="absolute inset-0 w-full h-full z-30 pointer-events-none" viewBox="0 0 400 400">
@@ -137,19 +139,31 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
       </text>
 
       {/* --- HUD Modular Data Blocks --- */}
-      <g opacity="0.8">
-        {/* Left HUD Block */}
-        <rect x="80" y="180" width="35" height="40" fill="black" fillOpacity="0.4" stroke={ui.tickMuted} strokeWidth="0.5" />
-        <text x="83" y="190" fill={themeColor} fontSize="5" fontWeight="bold">SENSORS</text>
-        <text x="83" y="200" fill={ui.textMain} fontSize="8" fontWeight="bold">{Math.round(audioLevels[10]/2.55)}</text>
-        <line x1="83" y1="205" x2="110" y2="205" stroke={ui.tickMuted} strokeWidth="0.3" />
-        <rect x="83" y="210" width={(audioLevels[15]/255)*25} height="2" fill={themeColor} />
+      <g opacity="0.9">
+        {/* Left HUD Block - Refined Tactical Layout */}
+        <path 
+          d="M 115,180 H 80 V 220 H 90" 
+          fill="none" 
+          stroke={ui.tickMuted} 
+          strokeWidth="0.5" 
+          opacity="0.6"
+        />
+        <text x="83" y="190" fill={ui.effectiveTheme} fontSize="6" fontWeight="bold" style={{ letterSpacing: '1px' }}>SENSORS</text>
+        <text x="83" y="202" fill={isLightMode ? "#09090b" : "#f4f4f5"} fontSize="10" fontWeight="bold">{Math.round(audioLevels[10]/2.55)}</text>
+        <rect x="83" y="208" width="25" height="1" fill={isLightMode ? "#e4e4e7" : "#27272a"} />
+        <rect x="83" y="208" width={(audioLevels[15]/255)*25} height="1" fill={ui.effectiveTheme} />
 
-        {/* Right HUD Block */}
-        <rect x="285" y="180" width="35" height="40" fill="black" fillOpacity="0.4" stroke={ui.tickMuted} strokeWidth="0.5" />
-        <text x="288" y="190" fill={themeColor} fontSize="5" fontWeight="bold">TELEMETRY</text>
-        <text x="288" y="200" fill={ui.textMain} fontSize="7" fontWeight="bold">{now.getSeconds()}SEC</text>
-        <circle cx="302" cy="210" r="5" fill="none" stroke={ui.tickMuted} strokeWidth="0.3" strokeDasharray="1,1" className="animate-spin-slow" />
+        {/* Right HUD Block - Refined Tactical Layout */}
+        <path 
+          d="M 285,180 H 320 V 220 H 310" 
+          fill="none" 
+          stroke={ui.tickMuted} 
+          strokeWidth="0.5" 
+          opacity="0.6"
+        />
+        <text x="288" y="190" fill={ui.effectiveTheme} fontSize="6" fontWeight="bold" style={{ letterSpacing: '1px' }}>TELEMETRY</text>
+        <text x="288" y="202" fill={isLightMode ? "#09090b" : "#f4f4f5"} fontSize="10" fontWeight="bold">{now.getSeconds()}SEC</text>
+        <circle cx="304" cy="212" r="4" fill="none" stroke={ui.tickMuted} strokeWidth="0.5" strokeDasharray="1,2" className="animate-[spin_4s_linear_infinite]" />
       </g>
 
       {/* Center Grid overlay */}
@@ -159,7 +173,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
         <circle cx="200" cy="200" r="70" fill="none" stroke={themeColor} strokeWidth="0.5" />
       </g>
 
-      <text fill="#888" fontSize="8" letterSpacing="4">
+      <text fill={isLightMode ? "#888" : "#aaa"} fontSize="8" letterSpacing="4">
         <textPath href="#topArcLabel" startOffset="50%" textAnchor="middle" dominantBaseline="alphabetic">
           {appMode === 'clock' ? (displayMode === 'decimal' ? 'DECIMAL.TIME' : 'STANDARD.TIME') :
            appMode === 'stopwatch' ? 'CHRONOGRAPH' :
@@ -195,7 +209,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
         </textPath>
       </text>
 
-      <text fill="#888" fontSize="7" letterSpacing="4">
+      <text fill={isLightMode ? "#888" : "#999"} fontSize="7" letterSpacing="4">
         <textPath href="#bottomArcLabel" startOffset="50%" textAnchor="middle" dominantBaseline="hanging">
           {appMode === 'clock' ? (
             displayMode === 'decimal' 

@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { RefreshCw, RotateCcw } from 'lucide-react';
 import { useAppLogic } from './hooks/useAppLogic';
 import { useAR } from './hooks/useAR';
@@ -17,6 +17,8 @@ import { AIBriefing } from './components/AIBriefing';
 import { MissionLogs } from './components/MissionLogs';
 import { SystemMenu } from './components/SystemMenu';
 import { TelemetryBar } from './components/TelemetryBar';
+import { ManualOverlay } from './components/ManualOverlay';
+import { AppLauncher } from './components/AppLauncher';
 import { getDecimalDate, getDecimalTime } from './lib/time-utils';
 
 export default function App() {
@@ -28,6 +30,7 @@ export default function App() {
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, toggleVoice, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
+    requestPermissions,
     aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
     speakAI,
     aiEnabled, toggleAiEnabled, baseLocation, steps, altitude, motion, stealthMode, toggleStealthMode, coords
@@ -37,6 +40,7 @@ export default function App() {
   const { btDevices: scanResults, isScanningBt: scanning, toggleBtScan } = useBluetooth(soundEnabled);
 
   const clockRef = useRef<HTMLDivElement>(null);
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!clockRef.current) return;
@@ -60,37 +64,49 @@ export default function App() {
   const isLightMode = lightModeOverride !== null ? lightModeOverride : isDay;
 
   const themeColor = activeTheme.hex;
+  
+  // High contrast accent for light mode readability (darker versions of theme colors)
+  const effectiveTheme = isLightMode && !arEnabled ? {
+    '#ccff00': '#7a9900', // Neon -> Olive/Dark Neon
+    '#ffb000': '#bf8400', // Amber -> Deep Amber
+    '#00e5ff': '#008c99', // Cyan -> Deep Cyan
+    '#ff003c': '#cc0030', // Crimson -> Dark Crimson
+  }[themeColor] || themeColor : themeColor;
+
+  const ui = {
+    bgApp: arEnabled ? "bg-black" : (stealthMode ? "bg-[#020202]" : (isLightMode ? "bg-zinc-50" : "bg-[#050505]")),
+    textMain: (stealthMode || !isLightMode || arEnabled) ? "text-zinc-50" : "text-zinc-950",
+    textMuted: stealthMode ? "text-zinc-400" : (isLightMode && !arEnabled ? "text-zinc-500" : "text-zinc-400"),
+    textVeryMuted: stealthMode ? "text-zinc-600" : (isLightMode && !arEnabled ? "text-zinc-300" : "text-zinc-500"),
+    bgClock: arEnabled ? "bg-black/60 backdrop-blur-sm" : (stealthMode ? "bg-black" : (isLightMode ? "bg-white" : "bg-[#0a0a0a]")),
+    borderClock: arEnabled ? "border-white/20" : (stealthMode ? "border-neutral-800" : (isLightMode ? "border-zinc-200" : "border-[#111]")),
+    ringBg: arEnabled ? "rgba(255,255,255,0.1)" : (stealthMode ? "#0a0a0a" : (isLightMode ? "rgba(0,0,0,0.03)" : "#151515")),
+    tickMuted: arEnabled ? "rgba(255,255,255,0.2)" : (stealthMode ? "#1a1a1a" : (isLightMode ? "rgba(0,0,0,0.08)" : "#222")),
+    btnBg: arEnabled ? "bg-black/50" : (stealthMode ? "bg-black" : (isLightMode ? "bg-white" : "bg-[#0f0f0f]")),
+    btnBorder: arEnabled ? "border-white/20" : (stealthMode ? "border-neutral-800" : (isLightMode ? "border-zinc-200" : "border-[#1a1a1a]")),
+    btnHoverBorder: arEnabled ? "hover:border-white/40" : (stealthMode ? "hover:border-neutral-600" : (isLightMode ? "hover:border-zinc-400" : "hover:border-[#333]")),
+    clockShadow: stealthMode
+      ? `0 20px 60px rgba(0,0,0,1), inset 0 0 80px rgba(0,0,0,1), 0 0 10px ${themeColor}10`
+      : appMode === 'water' 
+        ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #3b82f640`
+        : appMode === 'sleep'
+          ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #6366f140`
+          : arEnabled 
+            ? `0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px ${themeColor}60`
+            : isLightMode
+              ? `0 10px 30px rgba(0,0,0,0.03), inset 0 0 20px rgba(0,0,0,0.02), 0 0 2px rgba(0,0,0,0.1)`
+              : `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`,
+    controlBtnBorder: arEnabled ? "border-white/20 hover:bg-white/10" : (stealthMode ? "border-neutral-800 hover:bg-neutral-900" : (isLightMode ? "border-zinc-200 hover:bg-zinc-100" : "border-neutral-700 hover:bg-neutral-800")),
+    dividerBorder: arEnabled ? "border-white/20" : (stealthMode ? "border-neutral-900" : (isLightMode ? "border-zinc-100" : "border-neutral-800")),
+    iconMuted: arEnabled ? "text-white/50" : (stealthMode ? "text-neutral-600" : (isLightMode ? "text-zinc-400" : "text-neutral-400")),
+    effectiveTheme: effectiveTheme
+  };
+
   const daysSinceJ2000 = (now.getTime() - 946728000000) / 86400000;
   const planets = {
     mercury: ((daysSinceJ2000 / 87.969) * 360) % 360,
     venus: ((daysSinceJ2000 / 224.701) * 360) % 360,
     earth: ((daysSinceJ2000 / 365.256) * 360) % 360,
-  };
-
-  const ui = {
-    bgApp: arEnabled ? "bg-black" : (isLightMode ? "bg-stone-200" : "bg-[#050505]"),
-    textMain: isLightMode && !arEnabled ? "text-stone-800" : "text-white",
-    textMuted: isLightMode && !arEnabled ? "text-stone-500" : "text-neutral-400",
-    textVeryMuted: isLightMode && !arEnabled ? "text-stone-400" : "text-neutral-600",
-    bgClock: arEnabled ? "bg-black/60 backdrop-blur-sm" : (isLightMode ? "bg-stone-100" : "bg-[#0a0a0a]"),
-    borderClock: arEnabled ? "border-white/20" : (isLightMode ? "border-white" : "border-[#111]"),
-    ringBg: arEnabled ? "rgba(255,255,255,0.1)" : (isLightMode ? "#d6d3d1" : "#151515"),
-    tickMuted: arEnabled ? "rgba(255,255,255,0.2)" : (isLightMode ? "#a8a29e" : "#222"),
-    btnBg: arEnabled ? "bg-black/50" : (isLightMode ? "bg-white" : "bg-[#0f0f0f]"),
-    btnBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-200" : "border-[#1a1a1a]"),
-    btnHoverBorder: arEnabled ? "hover:border-white/40" : (isLightMode ? "hover:border-stone-400" : "hover:border-[#333]"),
-    clockShadow: appMode === 'water' 
-      ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #3b82f640`
-      : appMode === 'sleep'
-        ? `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 40px #6366f140`
-        : arEnabled 
-          ? `0 20px 50px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px ${themeColor}60`
-          : isLightMode
-            ? `0 20px 50px rgba(0,0,0,0.1), inset 0 0 60px rgba(0,0,0,0.05), 0 0 30px ${themeColor}40`
-            : `0 20px 50px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.9), 0 0 30px ${themeColor}20`,
-    controlBtnBorder: arEnabled ? "border-white/20 hover:bg-white/10" : (isLightMode ? "border-stone-300 hover:bg-stone-200" : "border-neutral-700 hover:bg-neutral-800"),
-    dividerBorder: arEnabled ? "border-white/20" : (isLightMode ? "border-stone-300" : "border-neutral-800"),
-    iconMuted: arEnabled ? "text-white/50" : (isLightMode ? "text-stone-400" : "text-neutral-400")
   };
 
   const radiusHours = 160;
@@ -133,7 +149,7 @@ export default function App() {
     <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative`}>
       <AIBriefing 
         briefing={aiBriefing} 
-        themeColor={themeColor} 
+        themeColor={ui.effectiveTheme} 
         isLightMode={isLightMode} 
         onRefresh={fetchBriefing} 
       />
@@ -143,12 +159,12 @@ export default function App() {
         addLog={addMissionLog}
         clearLogs={clearLogs}
         analyzeLogs={analyzeMissionLogs}
-        themeColor={themeColor}
+        themeColor={ui.effectiveTheme}
         ui={ui}
       />
 
       <TelemetryBar 
-        themeColor={themeColor}
+        themeColor={ui.effectiveTheme}
         ui={ui}
         battery={battery}
         weather={weather}
@@ -182,7 +198,7 @@ export default function App() {
         >
           <OuterRing 
             appMode={appMode} 
-            themeColor={themeColor} 
+            themeColor={ui.effectiveTheme} 
             ui={ui} 
             switchAppMode={switchAppMode}
             toggleBtScan={toggleBtScan}
@@ -204,9 +220,9 @@ export default function App() {
                   key={i} 
                   x1={200 + r1 * Math.cos(rad)} y1={200 + r1 * Math.sin(rad)} 
                   x2={200 + r2 * Math.cos(rad)} y2={200 + r2 * Math.sin(rad)} 
-                  stroke={isMajor ? themeColor : ui.tickMuted} 
+                  stroke={isMajor ? ui.effectiveTheme : ui.tickMuted} 
                   strokeWidth={isMajor ? "3" : "1.5"} 
-                  style={isMajor ? { filter: `drop-shadow(0 0 4px ${themeColor})` } : { transition: 'stroke 1s ease' }}
+                  style={isMajor ? { filter: `drop-shadow(0 0 4px ${ui.effectiveTheme})` } : { transition: 'stroke 1s ease' }}
                 />
               );
             })}
@@ -214,7 +230,7 @@ export default function App() {
 
           <ClockRings 
             appMode={appMode}
-            themeColor={themeColor}
+            themeColor={ui.effectiveTheme}
             ui={ui}
             rings={{ radiusHours, radiusMins, radiusSecs, circHours, circMins, circSecs, offsetHours, offsetMins, offsetSecs }}
             planets={planets}
@@ -230,7 +246,7 @@ export default function App() {
           {appMode === 'zen' && (
             <div className="absolute inset-0 z-30 flex items-center justify-center p-8 pointer-events-auto">
               <ZenModule 
-                themeColor={themeColor} 
+                themeColor={ui.effectiveTheme} 
                 ui={ui} 
                 speakAI={speakAI}
                 voiceEnabled={voiceEnabled}
@@ -242,7 +258,7 @@ export default function App() {
             <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
               <LevelModule 
                 motion={motion}
-                themeColor={themeColor}
+                themeColor={ui.effectiveTheme}
                 ui={ui}
               />
             </div>
@@ -252,7 +268,7 @@ export default function App() {
             <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
               <PedometerModule 
                 steps={steps}
-                themeColor={themeColor}
+                themeColor={ui.effectiveTheme}
                 ui={ui}
               />
             </div>
@@ -264,7 +280,7 @@ export default function App() {
                 baseLocation={baseLocation}
                 currentLocation={coords}
                 heading={heading}
-                themeColor={themeColor}
+                themeColor={ui.effectiveTheme}
                 ui={ui}
               />
             </div>
@@ -274,7 +290,7 @@ export default function App() {
             <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
               <AltimeterModule 
                 altitude={altitude}
-                themeColor={themeColor}
+                themeColor={ui.effectiveTheme}
                 weather={weather}
                 ui={ui}
               />
@@ -283,7 +299,7 @@ export default function App() {
 
           <CenterButton 
             appMode={appMode}
-            themeColor={themeColor}
+            themeColor={ui.effectiveTheme}
             isDay={isDay}
             swRunning={swRunning}
             tmRunning={tmRunning}
@@ -297,7 +313,7 @@ export default function App() {
           <ClockLabels 
             appMode={appMode}
             displayMode={displayMode}
-            themeColor={themeColor}
+            themeColor={ui.effectiveTheme}
             now={now}
             decimalTime={decimalTime}
             decimalDate={decimalDate}
@@ -316,6 +332,7 @@ export default function App() {
             isScanningBt={scanning}
             heading={heading}
             ui={ui}
+            isLightMode={isLightMode}
           />
 
           {appMode === 'stopwatch' && (
@@ -334,7 +351,7 @@ export default function App() {
               {tmRemaining <= 0 ? (
                 <div className="flex space-x-2">
                   {[1, 5, 15].map(m => (
-                    <button key={m} onClick={() => addTimerTime(m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: themeColor }}>+{m}m</button>
+                    <button key={m} onClick={() => addTimerTime(m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: ui.effectiveTheme }}>+{m}m</button>
                   ))}
                 </div>
               ) : (
@@ -346,7 +363,7 @@ export default function App() {
       </div>
 
       <SystemMenu 
-        themeColor={themeColor}
+        themeColor={ui.effectiveTheme}
         ui={ui}
         arEnabled={arEnabled}
         toggleAR={toggleAR}
@@ -364,6 +381,24 @@ export default function App() {
         toggleStealthMode={toggleStealthMode}
         activeTheme={activeTheme}
         changeTheme={changeTheme}
+        openManual={() => setIsManualOpen(true)}
+        requestPermissions={requestPermissions}
+      />
+
+      <ManualOverlay 
+        isOpen={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
+        themeColor={ui.effectiveTheme}
+        ui={ui}
+      />
+
+      <AppLauncher 
+        appMode={appMode}
+        themeColor={ui.effectiveTheme}
+        ui={ui}
+        switchAppMode={switchAppMode}
+        toggleBtScan={toggleBtScan}
+        isScanningBt={scanning}
       />
     </div>
   );
