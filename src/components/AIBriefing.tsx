@@ -12,10 +12,10 @@ interface AIBriefingProps {
 
 export const AIBriefing: React.FC<AIBriefingProps> = ({ briefing, themeColor, isLightMode, onRefresh }) => {
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-lg">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-lg pointer-events-none flex justify-center">
       <div 
         onClick={onRefresh}
-        className={`px-4 py-2 rounded-md border backdrop-blur-md cursor-pointer group transition-all duration-500 flex items-center space-x-3 overflow-hidden ${isLightMode ? 'bg-white/80 border-stone-200' : 'bg-black/60 border-neutral-800 hover:border-neutral-600'}`}
+        className={`px-4 py-2 rounded-md border backdrop-blur-md cursor-pointer pointer-events-auto group transition-all duration-500 flex items-center space-x-3 overflow-hidden ${isLightMode ? 'bg-white/80 border-stone-200' : 'bg-black/60 border-neutral-800 hover:border-neutral-600'}`}
         style={{ boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 0 10px ${themeColor}10` }}
       >
         <Terminal size={14} style={{ color: themeColor }} className="shrink-0 animate-pulse" />

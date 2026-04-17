@@ -15,6 +15,8 @@ import { WaypointModule } from './components/WaypointModule';
 import { AltimeterModule } from './components/AltimeterModule';
 import { AIBriefing } from './components/AIBriefing';
 import { MissionLogs } from './components/MissionLogs';
+import { SystemMenu } from './components/SystemMenu';
+import { TelemetryBar } from './components/TelemetryBar';
 import { getDecimalDate, getDecimalTime } from './lib/time-utils';
 
 export default function App() {
@@ -144,6 +146,22 @@ export default function App() {
         themeColor={themeColor}
         ui={ui}
       />
+
+      <TelemetryBar 
+        themeColor={themeColor}
+        ui={ui}
+        battery={battery}
+        weather={weather}
+        network={network}
+        hasGps={hasGps}
+        micEnabled={micEnabled}
+        decibels={decibels}
+        isDay={isDay}
+        sunTimes={sunTimes}
+        displayMode={displayMode}
+        toggleMic={toggleMic}
+      />
+
       {/* Background Video (AR) */}
       <video ref={videoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
       
@@ -165,35 +183,10 @@ export default function App() {
           <OuterRing 
             appMode={appMode} 
             themeColor={themeColor} 
-            isLightMode={isLightMode} 
-            arEnabled={arEnabled} 
             ui={ui} 
             switchAppMode={switchAppMode}
-            battery={battery}
-            network={network}
-            isDay={isDay}
-            sunTimes={sunTimes}
-            displayMode={displayMode}
-            weather={weather}
-            micEnabled={micEnabled}
-            decibels={decibels}
-            hasGps={hasGps}
-            toggleMic={toggleMic}
-            soundEnabled={soundEnabled}
-            activeTheme={activeTheme}
-            toggleAR={toggleAR}
-            toggleLightMode={toggleLightMode}
-            toggleSound={toggleSound}
-            changeTheme={changeTheme}
             toggleBtScan={toggleBtScan}
             isScanningBt={scanning}
-            toggleMode={toggleMode}
-            voiceEnabled={voiceEnabled}
-            toggleVoice={toggleVoice}
-            aiEnabled={aiEnabled}
-            toggleAiEnabled={toggleAiEnabled}
-            stealthMode={stealthMode}
-            toggleStealthMode={toggleStealthMode}
           />
           
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
@@ -351,6 +344,27 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <SystemMenu 
+        themeColor={themeColor}
+        ui={ui}
+        arEnabled={arEnabled}
+        toggleAR={toggleAR}
+        isLightMode={isLightMode}
+        toggleLightMode={toggleLightMode}
+        soundEnabled={soundEnabled}
+        toggleSound={toggleSound}
+        aiEnabled={aiEnabled}
+        toggleAiEnabled={toggleAiEnabled}
+        voiceEnabled={voiceEnabled}
+        toggleVoice={toggleVoice}
+        displayMode={displayMode}
+        toggleMode={toggleMode}
+        stealthMode={stealthMode}
+        toggleStealthMode={toggleStealthMode}
+        activeTheme={activeTheme}
+        changeTheme={changeTheme}
+      />
     </div>
   );
 }

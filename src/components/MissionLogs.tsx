@@ -25,14 +25,15 @@ export const MissionLogs: React.FC<MissionLogsProps> = ({ logs, addLog, clearLog
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
+    <div className="fixed bottom-6 left-6 z-[100] flex flex-col items-start">
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20, transformOrigin: "bottom left" }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className={`w-[280px] h-[350px] mb-4 flex flex-col rounded-lg border backdrop-blur-xl ${ui.bgClock} ${ui.borderClock} shadow-2xl overflow-hidden`}
+            className={`w-[280px] h-[350px] mb-4 flex flex-col rounded-xl border backdrop-blur-xl ${ui.bgClock} ${ui.borderClock} shadow-2xl overflow-hidden origin-bottom-left`}
+            style={{ boxShadow: `0 10px 40px -10px ${themeColor}40` }}
           >
             <div className={`p-3 border-b ${ui.dividerBorder} flex items-center justify-between`}>
               <div className="flex items-center space-x-2">

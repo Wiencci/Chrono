@@ -181,7 +181,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           {appMode === 'clock' && (
             displayMode === 'decimal' 
               ? `${MONTHS[decimalDate.month - 1]} • ${DAYS[decimalDate.dayOfWeek - 1]}` 
-              : now.toLocaleDateString('pt-BR')
+              : `${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).toUpperCase()} • ${now.toLocaleDateString('pt-BR', { weekday: 'short' }).toUpperCase()}`
           )}
           {appMode === 'speed' && `${(speedData.maxSpeed * 8.64).toFixed(1)} MAX`}
           {appMode === 'scanner' && 'IDLE'}
