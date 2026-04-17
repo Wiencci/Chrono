@@ -1,6 +1,6 @@
 {
-  "name": "DECIMALCHRONO",
-  "description": "",
+  "name": "DECIMALCHRONO v2.0",
+  "description": "Tactical universal metrology system by Operador Wiencci. 'Time is not an illusion, the counting of it is.'",
   "requestFramePermissions": [
     "geolocation",
     "microphone",

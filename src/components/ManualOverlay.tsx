@@ -87,8 +87,9 @@ export const ManualOverlay: React.FC<ManualOverlayProps> = ({ isOpen, onClose, t
               ))}
             </div>
 
-            <div className={`p-4 border-t ${ui.dividerBorder} bg-black/20 text-center`}>
-              <span className="text-[9px] uppercase tracking-tighter opacity-40">End of Briefing // Tactical HUD Override Active</span>
+            <div className={`p-4 border-t ${ui.dividerBorder} bg-black/20 text-center flex flex-col items-center justify-center space-y-1`}>
+              <p className="text-[10px] italic opacity-80 mb-1" style={{ color: themeColor }}>"O tempo não é uma ilusão, a contagem dele sim."</p>
+              <span className="text-[8px] uppercase tracking-widest opacity-40">— OPERADOR WIENCCI // SYS_END_BRIEFING</span>
             </div>
           </motion.div>
         </div>
