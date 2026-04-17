@@ -4,12 +4,12 @@ import { RefreshCw, RotateCcw } from 'lucide-react';
 import { useAppLogic } from './hooks/useAppLogic';
 import { useAR } from './hooks/useAR';
 import { useBluetooth } from './hooks/useBluetooth';
-import { ThemeControls } from './components/ThemeControls';
 import { ClockRings } from './components/ClockRings';
-import { ModeButtons } from './components/ModeButtons';
+import { OuterRing } from './components/ModeButtons';
 import { ClockLabels } from './components/ClockLabels';
-import { ComplicationsHex } from './components/ComplicationsHex';
 import { CenterButton } from './components/CenterButton';
+import { AIBriefing } from './components/AIBriefing';
+import { MissionLogs } from './components/MissionLogs';
 import { getDecimalDate, getDecimalTime } from './lib/time-utils';
 
 export default function App() {
@@ -17,10 +17,11 @@ export default function App() {
     now, activeTheme, displayMode, appMode, soundEnabled, lightModeOverride,
     micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration,
     battery, sunTimes, hasGps, weather, network,
-    speedData, swRunning, swTime, tmRunning, tmDuration, tmRemaining,
+    speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
-    lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer
+    toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
+    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing
   } = useAppLogic();
 
   const { arEnabled, videoRef, toggleAR } = useAR(soundEnabled);
@@ -121,31 +122,31 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative`}>
-      <video ref={videoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
-      
-      {arEnabled && <div className="absolute inset-0 z-0 pointer-events-none opacity-30" style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 2px, rgba(0,0,0,0.8) 2px, rgba(0,0,0,0.8) 4px)', backgroundSize: '100% 4px' }} />}
+      <AIBriefing 
+        briefing={aiBriefing} 
+        themeColor={themeColor} 
+        isLightMode={isLightMode} 
+        onRefresh={fetchBriefing} 
+      />
 
-      <div className="text-center mb-6 sm:mb-8 max-w-md z-10 mt-12 sm:mt-0">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2 text-white tracking-widest drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
-          DECIMAL<span style={{ color: themeColor, textShadow: `0 0 15px ${themeColor}` }}>CHRONO</span>
-        </h1>
-        <p className="text-[10px] sm:text-xs text-neutral-500 uppercase tracking-[0.3em]">
-          {appMode === 'clock' ? 'Sistema de Tempo Alternativo' : appMode === 'stopwatch' ? 'Cronômetro de Precisão' : appMode === 'timer' ? 'Purga de Sistema (Timer)' : appMode === 'speed' ? 'Telemetria de Velocidade' : appMode === 'scanner' ? 'Módulo de Reconhecimento' : 'Radar de Proximidade BLE'}
-        </p>
-      </div>
-
-      <ThemeControls 
-        arEnabled={arEnabled}
-        isLightMode={isLightMode}
-        soundEnabled={soundEnabled}
-        activeTheme={activeTheme}
+      <MissionLogs 
+        logs={missionLogs}
+        addLog={addMissionLog}
+        clearLogs={clearLogs}
         themeColor={themeColor}
         ui={ui}
-        toggleAR={toggleAR}
-        toggleLightMode={toggleLightMode}
-        toggleSound={toggleSound}
-        changeTheme={changeTheme}
       />
+      {/* Background Video (AR) */}
+      <video ref={videoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
+      
+      {/* UI Overlay Layers */}
+      <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+        {/* CRT Scanlines */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 118, 0.06))', backgroundSize: '100% 4px, 3px 100%' }} />
+        
+        {/* Vigette */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
+      </div>
 
       <div className="relative perspective-[1000px] z-10" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
         <div 
@@ -153,7 +154,33 @@ export default function App() {
           className={`relative w-[350px] h-[350px] sm:w-[460px] sm:h-[460px] rounded-full border-[12px] sm:border-[14px] ${ui.borderClock} ${ui.bgClock} flex items-center justify-center transition-transform duration-100 ease-out`}
           style={{ boxShadow: ui.clockShadow }}
         >
-          <ModeButtons appMode={appMode} themeColor={themeColor} isLightMode={isLightMode} arEnabled={arEnabled} ui={ui} switchAppMode={switchAppMode} />
+          <OuterRing 
+            appMode={appMode} 
+            themeColor={themeColor} 
+            isLightMode={isLightMode} 
+            arEnabled={arEnabled} 
+            ui={ui} 
+            switchAppMode={switchAppMode}
+            battery={battery}
+            network={network}
+            isDay={isDay}
+            sunTimes={sunTimes}
+            displayMode={displayMode}
+            weather={weather}
+            micEnabled={micEnabled}
+            decibels={decibels}
+            hasGps={hasGps}
+            toggleMic={toggleMic}
+            soundEnabled={soundEnabled}
+            activeTheme={activeTheme}
+            toggleAR={toggleAR}
+            toggleLightMode={toggleLightMode}
+            toggleSound={toggleSound}
+            changeTheme={changeTheme}
+            toggleBtScan={toggleBtScan}
+            isScanningBt={scanning}
+            toggleMode={toggleMode}
+          />
           
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
 
@@ -252,39 +279,7 @@ export default function App() {
               )}
             </div>
           )}
-
-          <ComplicationsHex 
-            ui={ui}
-            themeColor={themeColor}
-            battery={battery}
-            network={network}
-            isDay={isDay}
-            sunTimes={sunTimes}
-            displayMode={displayMode}
-            weather={weather}
-            micEnabled={micEnabled}
-            decibels={decibels}
-            hasGps={hasGps}
-            toggleMic={toggleMic}
-          />
         </div>
-      </div>
-
-      <div className="mt-8 sm:mt-12 flex flex-col items-center space-y-4 z-10">
-        {appMode === 'clock' && (
-          <button onClick={toggleMode} className="flex items-center space-x-2 text-neutral-400 text-[10px] sm:text-xs uppercase tracking-[0.2em] border border-neutral-800 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-neutral-900/50 hover:bg-neutral-800 hover:text-white transition-colors">
-            <RefreshCw className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${displayMode === 'standard' ? 'animate-spin-slow' : ''}`} />
-            <span>Modo Atual: <strong style={{ color: themeColor }}>{displayMode === 'decimal' ? 'Decimal' : 'Padrão'}</strong></span>
-          </button>
-        )}
-        
-        {appMode === 'clock' && displayMode === 'decimal' && (
-          <div className="text-neutral-600 text-[9px] sm:text-[11px] max-w-[280px] sm:max-w-sm text-center leading-relaxed border-t border-neutral-800 pt-3 sm:pt-4">
-            <span className="text-neutral-400">ARQUITETURA DE TEMPO</span><br/>
-            1 Dia = 10h • 1h = 100m • 1m = 100s<br/>
-            Ano = 10 Layers (Meses) • Ciclo = 9 States (Dias)
-          </div>
-        )}
       </div>
     </div>
   );

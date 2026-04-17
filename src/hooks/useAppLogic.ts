@@ -4,6 +4,7 @@ import { AppMode, THEMES, Theme } from '../types';
 import { soundEngine } from '../services/sound-engine';
 import { getDecimalTime, getDecimalDate } from '../lib/time-utils';
 import { vibrate, sendNotification } from '../lib/device-utils';
+import { getTacticalBriefing } from '../services/ai-service';
 import { useComplications } from './useComplications';
 import { useSpeedometer } from './useSpeedometer';
 import { useStopwatch } from './useStopwatch';
@@ -27,6 +28,12 @@ export function useAppLogic() {
   const [isSleeping, setIsSleeping] = useState(false);
   const [sleepStart, setSleepStart] = useState<number | null>(null);
   const [lastSleepDuration, setLastSleepDuration] = useState<number>(0);
+  
+  const [aiBriefing, setAiBriefing] = useState("INICIALIZANDO COMANDO...");
+  const [missionLogs, setMissionLogs] = useState<{id: number, text: string, time: string}[]>(() => {
+    const saved = localStorage.getItem('mission_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const { battery, sunTimes, hasGps, weather, network, tiltRef } = useComplications(arEnabled);
   const { speedData, resetMaxSpeed } = useSpeedometer(appMode);
@@ -150,6 +157,47 @@ export function useAppLogic() {
     }
   };
 
+  useEffect(() => {
+    localStorage.setItem('mission_logs', JSON.stringify(missionLogs));
+  }, [missionLogs]);
+
+  const addMissionLog = (text: string) => {
+    if (!text.trim()) return;
+    const newLog = {
+      id: Date.now(),
+      text,
+      time: new Date().toLocaleTimeString()
+    };
+    setMissionLogs(prev => [newLog, ...prev].slice(0, 50));
+    vibrate();
+    if (soundEnabled) soundEngine.playTick();
+  };
+
+  const clearLogs = () => {
+    setMissionLogs([]);
+    vibrate();
+  };
+
+  const fetchBriefing = async () => {
+    setAiBriefing("REQUISITANDO DADOS...");
+    const briefing = await getTacticalBriefing({
+      battery: battery?.level ? Math.round(battery.level * 100) : 100,
+      charging: battery?.charging || false,
+      weather: weather.temp || 20,
+      time: now.toLocaleTimeString(),
+      mode: displayMode,
+      appMode
+    });
+    setAiBriefing(briefing.toUpperCase());
+    vibrate([50]);
+  };
+
+  useEffect(() => {
+    const interval = setInterval(fetchBriefing, 60000 * 5); // Cada 5 min
+    fetchBriefing();
+    return () => clearInterval(interval);
+  }, [battery, weather]);
+
   const handleCenterClick = () => {
     if (appMode === 'clock') toggleMode();
     else if (appMode === 'stopwatch') toggleStopwatch();
@@ -187,6 +235,7 @@ export function useAppLogic() {
     speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
-    toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer
+    toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
+    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing
   };
 }
