@@ -1,7 +1,7 @@
 
 import { LucideIcon } from 'lucide-react';
 
-export type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed' | 'scanner' | 'radar' | 'orbit' | 'nav' | 'sonar' | 'decrypt' | 'water' | 'sleep';
+export type AppMode = 'clock' | 'stopwatch' | 'timer' | 'speed' | 'scanner' | 'radar' | 'orbit' | 'nav' | 'sonar' | 'decrypt' | 'water' | 'sleep' | 'zen' | 'level' | 'steps' | 'altimeter';
 
 export interface Theme {
   id: string;

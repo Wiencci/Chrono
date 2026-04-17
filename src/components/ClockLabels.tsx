@@ -22,10 +22,26 @@ interface ClockLabelsProps {
   waterIntake: number;
   waterGoal: number;
   isScanningBt: boolean;
+  heading: number | null;
+  ui: any;
 }
 
 const pad = (n: number) => n.toString().padStart(2, '0');
 const pad3 = (n: number) => n.toString().padStart(3, '0');
+
+const getDecimalHeading = (h: number | null) => {
+  if (h === null) return null;
+  return (h / 360) * 100;
+};
+
+const getCardinal = (h: number | null, mode: 'decimal' | 'standard') => {
+  if (h === null) return null;
+  const sectors = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  if (mode === 'decimal') {
+    return sectors[Math.round((h / 360) * 8) % 8];
+  }
+  return sectors[Math.round(h / 45) % 8];
+};
 
 export const ClockLabels: React.FC<ClockLabelsProps> = ({
   appMode,
@@ -46,11 +62,20 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
   audioLevels,
   waterIntake,
   waterGoal,
-  isScanningBt
+  isScanningBt,
+  heading,
+  ui
 }) => {
   return (
     <svg className="absolute inset-0 w-full h-full z-30 pointer-events-none" viewBox="0 0 400 400">
       <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
         <path id="topArc" d="M 125,200 A 75,75 0 0,1 275,200" />
         <path id="bottomArc" d="M 125,200 A 75,75 0 0,0 275,200" />
         <path id="topArcLabel" d="M 100,200 A 100,100 0 0,1 300,200" />
@@ -65,7 +90,7 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
               <tspan className="animate-pulse">:</tspan>
               {displayMode === 'decimal' ? pad(decimalTime.minutes) : pad(now.getMinutes())}
               <tspan className="animate-pulse">:</tspan>
-              <tspan stroke="#555" style={{ filter: 'none' }}>{displayMode === 'decimal' ? pad(decimalTime.seconds) : pad(now.getSeconds())}</tspan>
+              <tspan style={{ opacity: 0.4 }}>{displayMode === 'decimal' ? pad(decimalTime.seconds) : pad(now.getSeconds())}</tspan>
             </>
           )}
           {appMode === 'stopwatch' && (
@@ -84,11 +109,16 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
               {pad(Math.floor((tmRemaining % 60000) / 1000))}
             </>
           )}
+          {appMode === 'nav' && (heading !== null ? 
+            (displayMode === 'decimal' ? `${getDecimalHeading(heading)?.toFixed(1)}°D` : `${Math.round(heading)}°`) 
+            : 'SEARCHING')}
           {appMode === 'speed' && ((speedData.speed || 0) * 8.64).toFixed(1)}
           {appMode === 'scanner' && 'READY'}
           {appMode === 'radar' && btDevices.length.toString().padStart(2, '0')}
           {appMode === 'orbit' && 'ORBITAL'}
-          {appMode === 'nav' && (speedData.latitude !== null ? `${Math.abs(speedData.latitude).toFixed(4)}° ${speedData.latitude >= 0 ? 'N' : 'S'}` : 'SEARCHING...')}
+          {appMode === 'nav' && (heading !== null ? 
+            getCardinal(heading, displayMode) : 
+            (speedData.latitude !== null ? `${Math.abs(speedData.latitude).toFixed(4)}° ${speedData.latitude >= 0 ? 'N' : 'S'}` : 'SEARCHING...'))}
           {appMode === 'sonar' && 'LISTENING'}
           {appMode === 'decrypt' && decryptData.chars.slice(0, 6).join('')}
           {appMode === 'water' && 'INTAKE'}
@@ -105,6 +135,29 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
             ) : 'RESTING')}
         </textPath>
       </text>
+
+      {/* --- HUD Modular Data Blocks --- */}
+      <g opacity="0.8">
+        {/* Left HUD Block */}
+        <rect x="80" y="180" width="35" height="40" fill="black" fillOpacity="0.4" stroke={ui.tickMuted} strokeWidth="0.5" />
+        <text x="83" y="190" fill={themeColor} fontSize="5" fontWeight="bold">SENSORS</text>
+        <text x="83" y="200" fill={ui.textMain} fontSize="8" fontWeight="bold">{Math.round(audioLevels[10]/2.55)}</text>
+        <line x1="83" y1="205" x2="110" y2="205" stroke={ui.tickMuted} strokeWidth="0.3" />
+        <rect x="83" y="210" width={(audioLevels[15]/255)*25} height="2" fill={themeColor} />
+
+        {/* Right HUD Block */}
+        <rect x="285" y="180" width="35" height="40" fill="black" fillOpacity="0.4" stroke={ui.tickMuted} strokeWidth="0.5" />
+        <text x="288" y="190" fill={themeColor} fontSize="5" fontWeight="bold">TELEMETRY</text>
+        <text x="288" y="200" fill={ui.textMain} fontSize="7" fontWeight="bold">{now.getSeconds()}SEC</text>
+        <circle cx="302" cy="210" r="5" fill="none" stroke={ui.tickMuted} strokeWidth="0.3" strokeDasharray="1,1" className="animate-spin-slow" />
+      </g>
+
+      {/* Center Grid overlay */}
+      <g opacity="0.05">
+        <line x1="200" y1="130" x2="200" y2="270" stroke={themeColor} strokeWidth="0.5" />
+        <line x1="130" y1="200" x2="270" y2="200" stroke={themeColor} strokeWidth="0.5" />
+        <circle cx="200" cy="200" r="70" fill="none" stroke={themeColor} strokeWidth="0.5" />
+      </g>
 
       <text fill="#888" fontSize="8" letterSpacing="4">
         <textPath href="#topArcLabel" startOffset="50%" textAnchor="middle" dominantBaseline="alphabetic">

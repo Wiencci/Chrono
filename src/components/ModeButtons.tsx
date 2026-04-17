@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   Clock, Timer, Bell, Gauge, Scan, Bluetooth, Orbit, Compass, Radio, Hash, Droplet, Bed,
   Battery, Zap, WifiOff, Wifi, Sunset, Sunrise, Thermometer, Mic, MicOff, MapPin,
-   Eye, Sun, Moon, Volume2, VolumeX, RefreshCw
+  Eye, Sun, Moon, Volume2, VolumeX, RefreshCw, MessageSquare, Wind, Layers, Footprints, Mountain, Brain, ShieldAlert
 } from 'lucide-react';
 import { AppMode, Theme, THEMES } from '../types';
 
@@ -32,9 +32,14 @@ interface OuterRingProps {
   toggleAR: () => void;
   toggleLightMode: () => void;
   toggleSound: () => void;
+  toggleVoice: () => void;
+  toggleAiEnabled: () => void;
+  toggleStealthMode: () => void;
   changeTheme: (theme: Theme) => void;
   toggleBtScan: () => void;
   isScanningBt: boolean;
+  voiceEnabled: boolean;
+  aiEnabled: boolean;
 }
 
 export const OuterRing: React.FC<OuterRingProps> = ({
@@ -62,7 +67,13 @@ export const OuterRing: React.FC<OuterRingProps> = ({
   changeTheme,
   toggleBtScan,
   isScanningBt,
-  toggleMode
+  toggleMode,
+  toggleVoice,
+  toggleAiEnabled,
+  toggleStealthMode,
+  voiceEnabled,
+  aiEnabled,
+  stealthMode
 }) => {
   const modes = [
     { id: 'clock', icon: Clock, label: 'CHRONO' },
@@ -76,7 +87,11 @@ export const OuterRing: React.FC<OuterRingProps> = ({
     { id: 'sonar', icon: Radio, label: 'SONAR' },
     { id: 'decrypt', icon: Hash, label: 'DECRYPT' },
     { id: 'water', icon: Droplet, label: 'WATER' },
-    { id: 'sleep', icon: Bed, label: 'SLEEP' }
+    { id: 'sleep', icon: Bed, label: 'SLEEP' },
+    { id: 'zen', icon: Wind, label: 'ZEN' },
+    { id: 'level', icon: Layers, label: 'LEVEL' },
+    { id: 'steps', icon: Footprints, label: 'STEPS' },
+    { id: 'altimeter', icon: Mountain, label: 'ALT' }
   ];
 
   const telemetry = [
@@ -92,7 +107,10 @@ export const OuterRing: React.FC<OuterRingProps> = ({
     { id: 'ar', icon: Eye, value: '', label: 'AR', onClick: toggleAR, active: arEnabled },
     { id: 'light', icon: isLightMode ? Sun : Moon, value: '', label: 'LGT', onClick: toggleLightMode, active: isLightMode },
     { id: 'sound', icon: soundEnabled ? Volume2 : VolumeX, value: '', label: 'SND', onClick: toggleSound, active: soundEnabled },
-    { id: 'mode', icon: RefreshCw, value: displayMode === 'decimal' ? 'DCM' : 'STD', label: 'MODE', onClick: toggleMode, active: displayMode === 'decimal' }
+    { id: 'ai', icon: Brain, value: '', label: 'AI', onClick: toggleAiEnabled, active: aiEnabled },
+    { id: 'voice', icon: MessageSquare, value: '', label: 'VOX', onClick: toggleVoice, active: voiceEnabled },
+    { id: 'mode', icon: RefreshCw, value: displayMode === 'decimal' ? 'DCM' : 'STD', label: 'MODE', onClick: toggleMode, active: displayMode === 'decimal' },
+    { id: 'stealth', icon: ShieldAlert, value: '', label: 'STL', onClick: toggleStealthMode, active: stealthMode }
   ];
 
   const allItems = [

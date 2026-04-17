@@ -8,20 +8,27 @@ import { ClockRings } from './components/ClockRings';
 import { OuterRing } from './components/ModeButtons';
 import { ClockLabels } from './components/ClockLabels';
 import { CenterButton } from './components/CenterButton';
+import { ZenModule } from './components/ZenModule';
+import { LevelModule } from './components/LevelModule';
+import { PedometerModule } from './components/PedometerModule';
+import { WaypointModule } from './components/WaypointModule';
+import { AltimeterModule } from './components/AltimeterModule';
 import { AIBriefing } from './components/AIBriefing';
 import { MissionLogs } from './components/MissionLogs';
 import { getDecimalDate, getDecimalTime } from './lib/time-utils';
 
 export default function App() {
   const {
-    now, activeTheme, displayMode, appMode, soundEnabled, lightModeOverride,
+    now, activeTheme, displayMode, appMode, soundEnabled, voiceEnabled, lightModeOverride,
     micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration,
-    battery, sunTimes, hasGps, weather, network,
+    battery, sunTimes, hasGps, weather, network, tiltRef, heading,
     speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
     decibels, audioLevels,
-    toggleMode, changeTheme, toggleSound, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
+    toggleMode, changeTheme, toggleSound, toggleVoice, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
-    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing
+    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
+    speakAI,
+    aiEnabled, toggleAiEnabled, baseLocation, steps, altitude, motion, stealthMode, toggleStealthMode, coords
   } = useAppLogic();
 
   const { arEnabled, videoRef, toggleAR } = useAR(soundEnabled);
@@ -133,6 +140,7 @@ export default function App() {
         logs={missionLogs}
         addLog={addMissionLog}
         clearLogs={clearLogs}
+        analyzeLogs={analyzeMissionLogs}
         themeColor={themeColor}
         ui={ui}
       />
@@ -180,6 +188,12 @@ export default function App() {
             toggleBtScan={toggleBtScan}
             isScanningBt={scanning}
             toggleMode={toggleMode}
+            voiceEnabled={voiceEnabled}
+            toggleVoice={toggleVoice}
+            aiEnabled={aiEnabled}
+            toggleAiEnabled={toggleAiEnabled}
+            stealthMode={stealthMode}
+            toggleStealthMode={toggleStealthMode}
           />
           
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
@@ -220,6 +234,60 @@ export default function App() {
             isSleeping={isSleeping}
           />
 
+          {appMode === 'zen' && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-8 pointer-events-auto">
+              <ZenModule 
+                themeColor={themeColor} 
+                ui={ui} 
+                speakAI={speakAI}
+                voiceEnabled={voiceEnabled}
+              />
+            </div>
+          )}
+
+          {appMode === 'level' && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
+              <LevelModule 
+                motion={motion}
+                themeColor={themeColor}
+                ui={ui}
+              />
+            </div>
+          )}
+
+          {appMode === 'steps' && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
+              <PedometerModule 
+                steps={steps}
+                themeColor={themeColor}
+                ui={ui}
+              />
+            </div>
+          )}
+
+          {appMode === 'nav' && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
+              <WaypointModule 
+                baseLocation={baseLocation}
+                currentLocation={coords}
+                heading={heading}
+                themeColor={themeColor}
+                ui={ui}
+              />
+            </div>
+          )}
+
+          {appMode === 'altimeter' && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
+              <AltimeterModule 
+                altitude={altitude}
+                themeColor={themeColor}
+                weather={weather}
+                ui={ui}
+              />
+            </div>
+          )}
+
           <CenterButton 
             appMode={appMode}
             themeColor={themeColor}
@@ -253,6 +321,8 @@ export default function App() {
             waterIntake={waterIntake}
             waterGoal={2000}
             isScanningBt={scanning}
+            heading={heading}
+            ui={ui}
           />
 
           {appMode === 'stopwatch' && (

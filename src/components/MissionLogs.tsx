@@ -1,17 +1,18 @@
 
 import React, { useState } from 'react';
-import { ScrollText, Plus, X, Trash2 } from 'lucide-react';
+import { ScrollText, Plus, X, Trash2, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MissionLogsProps {
   logs: { id: number, text: string, time: string }[];
   addLog: (text: string) => void;
   clearLogs: () => void;
+  analyzeLogs: () => void;
   themeColor: string;
   ui: any;
 }
 
-export const MissionLogs: React.FC<MissionLogsProps> = ({ logs, addLog, clearLogs, themeColor, ui }) => {
+export const MissionLogs: React.FC<MissionLogsProps> = ({ logs, addLog, clearLogs, analyzeLogs, themeColor, ui }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
 
@@ -38,9 +39,18 @@ export const MissionLogs: React.FC<MissionLogsProps> = ({ logs, addLog, clearLog
                 <ScrollText size={14} style={{ color: themeColor }} />
                 <span className="text-[10px] uppercase tracking-widest font-bold">Log de Missão</span>
               </div>
-              <button onClick={clearLogs} className={ui.iconMuted}>
-                <Trash2 size={14} className="hover:text-red-500 transition-colors" />
-              </button>
+              <div className="flex items-center space-x-3">
+                <button 
+                  onClick={analyzeLogs} 
+                  className={`${ui.iconMuted} hover:text-white transition-colors flex items-center space-x-1`}
+                  title="Análise de Inteligência"
+                >
+                  <Brain size={14} style={{ color: logs.length > 0 ? themeColor : undefined }} />
+                </button>
+                <button onClick={clearLogs} className={ui.iconMuted}>
+                  <Trash2 size={14} className="hover:text-red-500 transition-colors" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">

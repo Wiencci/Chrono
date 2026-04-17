@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed } from 'lucide-react';
+import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed, Wind, Layers, Footprints, Mountain, Orbit } from 'lucide-react';
 import { AppMode } from '../types';
 
 interface CenterButtonProps {
@@ -60,8 +60,18 @@ export const CenterButton: React.FC<CenterButtonProps> = ({
         return <Droplet className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'sleep':
         return <Bed className={`w-7 h-7 sm:w-9 sm:h-9 ${isSleeping ? 'animate-pulse' : ''}`} style={{ color: isSleeping ? '#818cf8' : themeColor, filter: `drop-shadow(0 0 10px ${isSleeping ? '#818cf8' : themeColor})` }} />;
+      case 'zen':
+        return <Wind className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'level':
+        return <Layers className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'steps':
+        return <Footprints className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'altimeter':
+        return <Mountain className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'orbit':
+        return <Orbit className="w-7 h-7 sm:w-9 sm:h-9" style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       default:
-        return <Sun className="w-7 h-7 sm:w-9 sm:h-9 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)] animate-[spin_20s_linear_infinite]" />;
+        return null;
     }
   };
 

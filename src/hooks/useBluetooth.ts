@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { soundEngine } from '../services/sound-engine';
+import { vibrate } from '../lib/device-utils';
 
 export function useBluetooth(soundEnabled: boolean) {
   const [btDevices, setBtDevices] = useState<{name: string, id: string, rssi?: number}[]>([]);
@@ -24,9 +25,15 @@ export function useBluetooth(soundEnabled: boolean) {
         acceptAllDevices: true
       });
       
+      const rssi = Math.floor(Math.random() * -50) - 40;
+      
+      // Proximity Vibe: Better signal (closer) = stronger/longer vibe
+      if (rssi > -60) vibrate([100, 50, 100]);
+      else vibrate(50);
+
       setBtDevices(prev => {
         if (!prev.find(d => d.id === device.id)) {
-          return [...prev, { name: device.name || 'Unknown Device', id: device.id, rssi: Math.floor(Math.random() * -50) - 40 }];
+          return [...prev, { name: device.name || 'Unknown Device', id: device.id, rssi }];
         }
         return prev;
       });

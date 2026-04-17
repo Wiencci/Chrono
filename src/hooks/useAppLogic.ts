@@ -3,8 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { AppMode, THEMES, Theme } from '../types';
 import { soundEngine } from '../services/sound-engine';
 import { getDecimalTime, getDecimalDate } from '../lib/time-utils';
-import { vibrate, sendNotification } from '../lib/device-utils';
-import { getTacticalBriefing } from '../services/ai-service';
+import { vibrate, sendNotification, playBase64PCM } from '../lib/device-utils';
+import { getTacticalBriefing, analyzeLogs, generateVoice } from '../services/ai-service';
 import { useComplications } from './useComplications';
 import { useSpeedometer } from './useSpeedometer';
 import { useStopwatch } from './useStopwatch';
@@ -17,6 +17,7 @@ export function useAppLogic() {
   const [displayMode, setDisplayMode] = useState<'decimal' | 'standard'>('decimal');
   const [appMode, setAppMode] = useState<AppMode>('clock');
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [lightModeOverride, setLightModeOverride] = useState<boolean | null>(null);
   
   const [arEnabled, setArEnabled] = useState(false);
@@ -35,7 +36,11 @@ export function useAppLogic() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const { battery, sunTimes, hasGps, weather, network, tiltRef } = useComplications(arEnabled);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [baseLocation, setBaseLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [stealthMode, setStealthMode] = useState(false);
+
+  const { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords } = useComplications(arEnabled);
   const { speedData, resetMaxSpeed } = useSpeedometer(appMode);
   const { swRunning, swTime, swLaps, toggleStopwatch, lapOrResetStopwatch, updateStopwatch } = useStopwatch(soundEnabled, () => soundEngine.playButtonPress());
   const { tmRunning, tmDuration, tmRemaining, addTimerTime, toggleTimer, resetTimer, updateTimer } = useTimer(
@@ -146,6 +151,53 @@ export function useAppLogic() {
     if (soundEnabled) soundEngine.playButtonPress();
   };
 
+  const toggleVoice = () => {
+    vibrate();
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    if (next) setAiEnabled(true);
+    if (next && !soundEnabled) {
+      soundEngine.init();
+      setSoundEnabled(true);
+    }
+    if (next) soundEngine.playButtonPress();
+  };
+
+  const toggleAiEnabled = () => {
+    vibrate();
+    setAiEnabled(!aiEnabled);
+    if (soundEnabled) soundEngine.playTick();
+  };
+
+  const toggleStealthMode = () => {
+    vibrate();
+    const next = !stealthMode;
+    setStealthMode(next);
+    if (next) {
+        setActiveTheme(THEMES.find(t => t.id === 'crimson') || THEMES[0]);
+        setLightModeOverride(false);
+        if (voiceEnabled) speakAI("Modo Stealth ativado. Perfil de emissões reduzido.");
+    } else {
+        if (voiceEnabled) speakAI("Modo Stealth desativado. Retornando ao perfil padrão.");
+    }
+    if (soundEnabled) soundEngine.playTick();
+  };
+
+  const speakAI = async (text: string) => {
+    if (!aiEnabled || !voiceEnabled) return;
+    const base64 = await generateVoice(text);
+    if (base64) {
+      playBase64PCM(base64);
+    }
+  };
+
+  const speakTime = () => {
+    const dTime = getDecimalTime(now);
+    const dDate = getDecimalDate(now);
+    const text = `Agora são ${dTime.hours} horas, ${dTime.minutes} minutos e ${dTime.seconds} segundos decimais. Ciclo ${dDate.dayOfWeek} de nove.`;
+    speakAI(text);
+  };
+
   const toggleMic = () => {
     vibrate();
     if (micEnabled) {
@@ -178,7 +230,23 @@ export function useAppLogic() {
     vibrate();
   };
 
+  const analyzeMissionLogs = async () => {
+    if (missionLogs.length === 0) {
+      setAiBriefing("SEM DADOS PARA ANÁLISE.");
+      return;
+    }
+    setAiBriefing("PROCESSANDO INTELIGÊNCIA...");
+    const analysis = await analyzeLogs(missionLogs);
+    setAiBriefing(`ANÁLISE: ${analysis.toUpperCase()}`);
+    vibrate([100, 50, 100]);
+    speakAI(analysis);
+  };
+
   const fetchBriefing = async () => {
+    if (!aiEnabled) {
+      setAiBriefing("SISTEMA DE I.A. DESATIVADO.");
+      return;
+    }
     setAiBriefing("REQUISITANDO DADOS...");
     const briefing = await getTacticalBriefing({
       battery: battery?.level ? Math.round(battery.level * 100) : 100,
@@ -190,6 +258,7 @@ export function useAppLogic() {
     });
     setAiBriefing(briefing.toUpperCase());
     vibrate([50]);
+    speakAI(briefing);
   };
 
   useEffect(() => {
@@ -197,6 +266,27 @@ export function useAppLogic() {
     fetchBriefing();
     return () => clearInterval(interval);
   }, [battery, weather]);
+
+  // Health and Sleep Reminders
+  useEffect(() => {
+    const checkReminders = () => {
+      if (!voiceEnabled) return;
+      const h = now.getHours();
+      
+      // Water reminder every 2 hours between 8h and 20h
+      if (h >= 8 && h <= 20 && h % 2 === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+        if (waterIntake < 2000) {
+          speakAI("Lembrete de hidratação. Seus níveis de H2O estão abaixo do ideal tático.");
+        }
+      }
+
+      // Sleep reminder at 23h
+      if (h === 23 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+        speakAI("Atenção operador. Horário de repouso recomendado para manter eficiência cognitiva.");
+      }
+    };
+    checkReminders();
+  }, [now.getMinutes(), now.getSeconds(), voiceEnabled]);
 
   const handleCenterClick = () => {
     if (appMode === 'clock') toggleMode();
@@ -220,6 +310,19 @@ export function useAppLogic() {
         setSleepStart(Date.now());
       }
     }
+    else if (appMode === 'clock') {
+        speakTime();
+    }
+    else if (appMode === 'nav') {
+      if (hasGps) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          setBaseLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          vibrate([100, 50, 100]);
+          addMissionLog("LOCALIZAÇÃO DE BASE DEFINIDA VIA GPS.");
+          if (voiceEnabled) speakAI("Base tática confirmada. Vetor de retorno estabelecido.");
+        });
+      }
+    }
   };
 
   const toggleLightMode = () => {
@@ -228,14 +331,16 @@ export function useAppLogic() {
   };
 
   return {
-    now, activeTheme, displayMode, appMode, soundEnabled, lightModeOverride,
+    now, activeTheme, displayMode, appMode, soundEnabled, voiceEnabled, lightModeOverride,
     arEnabled, setArEnabled, btDevices, setBtDevices, isScanningBt, setIsScanningBt,
     micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration,
-    setLastSleepDuration, battery, sunTimes, hasGps, weather, network, tiltRef,
+    setLastSleepDuration, battery, sunTimes, hasGps, weather, network, tiltRef, heading,
     speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
     decibels, audioLevels,
-    toggleMode, changeTheme, toggleSound, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
+    toggleMode, changeTheme, toggleSound, toggleVoice, toggleAiEnabled, toggleStealthMode, speakTime, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
-    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing
+    aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
+    speakAI,
+    aiEnabled, baseLocation, steps, altitude, motion, stealthMode, setStealthMode, coords
   };
 }
