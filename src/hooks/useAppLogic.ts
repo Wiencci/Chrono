@@ -26,9 +26,28 @@ export function useAppLogic() {
   const [micEnabled, setMicEnabled] = useState(false);
   const [decryptData, setDecryptData] = useState<{chars: string[]}>({chars: new Array(12).fill('0')});
   const [waterIntake, setWaterIntake] = useState(() => {
+    const savedDate = localStorage.getItem('water_date');
+    const today = new Date().toDateString();
+    
+    if (savedDate !== today) {
+      localStorage.setItem('water_date', today);
+      localStorage.setItem('water_intake', '0');
+      return 0;
+    }
+
     const saved = localStorage.getItem('water_intake');
     return saved ? parseInt(saved, 10) : 0;
   });
+
+  const todayStr = now.toDateString();
+  useEffect(() => {
+    const savedDate = localStorage.getItem('water_date');
+    if (savedDate !== todayStr) {
+      setWaterIntake(0);
+      localStorage.setItem('water_date', todayStr);
+      localStorage.setItem('water_intake', '0');
+    }
+  }, [todayStr]);
 
   useEffect(() => {
     localStorage.setItem('water_intake', waterIntake.toString());
@@ -36,6 +55,14 @@ export function useAppLogic() {
   const [isSleeping, setIsSleeping] = useState(false);
   const [sleepStart, setSleepStart] = useState<number | null>(null);
   const [lastSleepDuration, setLastSleepDuration] = useState<number>(0);
+  
+  const [sleepQuality, setSleepQuality] = useState(100);
+  const [sleepMetrics, setSleepMetrics] = useState<{disturbances: number, avgNoise: number, avgMove: number}>({ disturbances: 0, avgNoise: 0, avgMove: 0 });
+  
+  // ZEN PROTOCOL STATES
+  const [zenActive, setZenActive] = useState(false);
+  const [zenPhase, setZenPhase] = useState<'inspire' | 'hold' | 'expire' | 'wait'>('inspire');
+  const [zenTimer, setZenTimer] = useState(4);
   
   const [aiBriefing, setAiBriefing] = useState("INICIALIZANDO COMANDO...");
   const [missionLogs, setMissionLogs] = useState<{id: number, text: string, time: string}[]>(() => {
@@ -60,6 +87,43 @@ export function useAppLogic() {
     () => soundEngine.playAlarm()
   );
   const { decibels, audioLevels, setAudioLevels, analyserRef, startMicMonitoring, stopAudio } = useAudioContext(appMode, micEnabled);
+
+  useEffect(() => {
+    let interval: any;
+    if (zenActive) {
+      interval = setInterval(() => {
+        setZenTimer((t) => {
+          if (t <= 1) {
+            const sequence: Record<string, typeof zenPhase> = {
+              'inspire': 'hold',
+              'hold': 'expire',
+              'expire': 'wait',
+              'wait': 'inspire'
+            };
+            setZenPhase(sequence[zenPhase]);
+            return 4;
+          }
+          return t - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [zenActive, zenPhase]);
+
+  const toggleZen = () => {
+    const next = !zenActive;
+    setZenActive(next);
+    vibrate();
+    if (soundEnabled) soundEngine.playButtonPress();
+    
+    if (next) {
+        setZenPhase('inspire');
+        setZenTimer(4);
+        if (voiceEnabled) speakAI("Ritual de centralização iniciado. Foque na respiração.");
+    } else {
+        if (voiceEnabled) speakAI("Sessão encerrada. Equilíbrio restabelecido.");
+    }
+  };
 
   const lastSecRef = useRef(-1);
   const lastMinRef = useRef(-1);
@@ -92,6 +156,25 @@ export function useAppLogic() {
       if (timestamp - lastRenderTime >= throttleMs) {
         setNow(newNow);
         lastRenderTime = timestamp;
+
+        if (isSleeping) {
+          // Monitor ambient changes using motion, audio and lux via complications mock or real info
+          setSleepMetrics(prev => {
+            const noiseSpike = (decibels > 60) ? 1 : 0;
+            const moveTotal = Math.sqrt(Math.pow(motion?.x || 0, 2) + Math.pow(motion?.y || 0, 2) + Math.pow(motion?.z || 0, 2));
+            const moveSpike = (moveTotal > 2) ? 1 : 0;
+            const isDisturbed = (noiseSpike || moveSpike);
+            
+            if (isDisturbed && Math.random() > 0.8) {
+              setSleepQuality(q => Math.max(0, q - 1));
+            }
+            return {
+              disturbances: prev.disturbances + (isDisturbed ? 1 : 0),
+              avgNoise: decibels > 0 ? (prev.avgNoise + decibels) / 2 : prev.avgNoise,
+              avgMove: moveTotal > 0 ? (prev.avgMove + moveTotal) / 2 : prev.avgMove
+            };
+          });
+        }
       }
       
       updateStopwatch();
@@ -362,7 +445,12 @@ export function useAppLogic() {
       } else {
         setIsSleeping(true);
         setSleepStart(Date.now());
+        setSleepQuality(100);
+        setSleepMetrics({ disturbances: 0, avgNoise: 0, avgMove: 0 });
       }
+    }
+    else if (appMode === 'zen') {
+      toggleZen();
     }
     else if (appMode === 'level') {
       vibrate();
@@ -390,8 +478,9 @@ export function useAppLogic() {
     now, activeTheme, displayMode, appMode, soundEnabled, voiceEnabled, lightModeOverride,
     arEnabled, setArEnabled, btDevices, setBtDevices, isScanningBt, setIsScanningBt,
     micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration,
-    setLastSleepDuration, battery, sunTimes, hasGps, weather, network, tiltRef, heading,
+    setLastSleepDuration, sleepQuality, sleepMetrics, battery, sunTimes, hasGps, weather, network, tiltRef, heading,
     speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
+    zenActive, zenPhase, zenTimer, toggleZen,
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, toggleVoice, toggleAiEnabled, toggleStealthMode, speakTime, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,

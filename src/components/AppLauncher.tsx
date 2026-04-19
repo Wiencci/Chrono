@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   LayoutGrid, Scan, Bluetooth, Orbit, Compass, Radio, Hash, Wind, Layers, Footprints, Mountain, X,
-  Zap, Activity, Sun, Flame, Nfc, Calendar, Timer, Bell, Gauge, Droplet, Bed, Clock
+  Zap, Activity, Sun, Flame, Nfc, Calendar, Timer, Bell, Gauge, Droplet, Bed, Clock, Satellite, Watch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppMode } from '../types';
@@ -28,6 +28,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
 
   const chronos = [
     { id: 'clock', icon: Clock, label: 'MAIN CHRONO' },
+    { id: 'analog', icon: Watch, label: 'ANALOG CHRONO' },
     { id: 'stopwatch', icon: Timer, label: 'STOPWATCH' },
     { id: 'timer', icon: Bell, label: 'COUNTDOWN' },
     { id: 'speed', icon: Gauge, label: 'VELOCITY' },
@@ -46,6 +47,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
     { id: 'steps', icon: Footprints, label: 'STEP COUNT' },
     { id: 'altimeter', icon: Mountain, label: 'ALTIMETER' },
     { id: 'orbit', icon: Orbit, label: 'ORBIT' },
+    { id: 'astro', icon: Satellite, label: 'NEO RADAR' },
     { id: 'emf', icon: Zap, label: 'EMF' },
     { id: 'seismo', icon: Activity, label: 'SEISMO' },
     { id: 'lumen', icon: Sun, label: 'LUMEN' },
@@ -144,7 +146,7 @@ export const AppLauncher: React.FC<AppLauncherProps> = ({
       >
         <div className="relative">
              <LayoutGrid size={24} className={`transition-transform duration-500 ${isOpen ? 'rotate-90 scale-75' : 'group-hover:rotate-12'}`} />
-             {appMode !== 'clock' && !['stopwatch', 'timer', 'speed', 'water', 'sleep'].includes(appMode) && (
+             {appMode !== 'clock' && appMode !== 'analog' && !['stopwatch', 'timer', 'speed', 'water', 'sleep'].includes(appMode) && (
                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-black animate-pulse" style={{ backgroundColor: themeColor }}></div>
              )}
         </div>

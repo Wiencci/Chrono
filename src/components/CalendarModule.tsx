@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, Milestone, Target } from 'lucide-react';
 import { motion } from 'motion/react';
 import { DAYS, MONTHS } from '../types';
 import { toDecimalDate, isLeapYear } from '../lib/decimalLogic';
@@ -14,7 +13,6 @@ interface CalendarModuleProps {
 export const CalendarModule: React.FC<CalendarModuleProps> = ({ themeColor, ui, displayMode }) => {
   const now = new Date();
   const dDate = toDecimalDate(now);
-  const isDecimal = displayMode === 'decimal';
   
   const leap = isLeapYear(dDate.year);
   const monthLengths = [36, 37, 36, 37, 36, 37, 36, 37, 36, leap ? 38 : 37];
@@ -23,141 +21,174 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({ themeColor, ui, 
   const yearProgress = (dDate.dayOfYear / (leap ? 366 : 365)) * 100;
   const monthProgress = (dDate.dayOfMonth / currentMonthLength) * 100;
 
-  // Grid for the current month
-  const days = Array.from({ length: currentMonthLength }, (_, i) => i + 1);
+  const daysArray = Array.from({ length: currentMonthLength }, (_, i) => i + 1);
+  const dowArray = Array.from({ length: 9 }, (_, i) => i + 1);
+  const monthsArray = Array.from({ length: 10 }, (_, i) => i + 1);
+
+  // Calculates the negative rotation needed to put the current element at the top (0 degrees)
+  const dayAngleOffset = -((dDate.dayOfMonth - 1) / currentMonthLength) * 360;
+  const dowAngleOffset = -((dDate.dayOfWeek - 1) / 9) * 360;
+  const monthAngleOffset = -((dDate.month - 1) / 10) * 360;
 
   return (
-    <div className="flex flex-col items-center justify-start p-4 space-y-4 w-full h-full overflow-y-auto scrollbar-hide">
-      {/* Header Info */}
-      <div className="w-full flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          <CalendarIcon size={16} style={{ color: themeColor }} />
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em]" style={{ color: themeColor }}>
-            Tactical Chronology
-          </span>
-        </div>
-        <div className="px-2 py-0.5 rounded border border-white/10 bg-white/5">
-          <span className="text-[8px] font-mono opacity-60">MISSION_YEAR: {dDate.year}</span>
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center w-full h-full overflow-hidden">
+      <div className="relative w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] flex items-center justify-center">
+        
+        {/* Ambient Mayan Glow */}
+        <div className="absolute inset-0 rounded-full opacity-10 blur-2xl pointer-events-none" style={{ backgroundColor: themeColor }} />
 
-      {/* Progress Section */}
-      <div className="w-full grid grid-cols-2 gap-4">
-        <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
-           <div className="flex items-center justify-between mb-2">
-              <span className="text-[7px] uppercase tracking-widest opacity-40">Year Cycle</span>
-              <span className="text-[9px] font-mono">{yearProgress.toFixed(1)}%</span>
-           </div>
-           <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${yearProgress}%` }}
-                className="h-full" 
-                style={{ backgroundColor: themeColor }} 
-              />
-           </div>
-        </div>
-        <div className="bg-white/5 border border-white/5 p-3 rounded-xl">
-           <div className="flex items-center justify-between mb-2">
-              <span className="text-[7px] uppercase tracking-widest opacity-40">Month Flux</span>
-              <span className="text-[9px] font-mono">{monthProgress.toFixed(1)}%</span>
-           </div>
-           <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${monthProgress}%` }}
-                className="h-full" 
-                style={{ backgroundColor: themeColor }} 
-              />
-           </div>
-        </div>
-      </div>
+        <svg className="absolute inset-0 w-full h-full drop-shadow-md z-10" viewBox="0 0 400 400">
+          
+          <defs>
+            <path id="dowArc" d="M 65,200 A 135,135 0 0,1 335,200" />
+            <path id="monthArc" d="M 100,200 A 100,100 0 0,1 300,200" />
+          </defs>
 
-      {/* Decimal Month View */}
-      <div className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex flex-col">
-            <span className="text-[8px] uppercase tracking-[0.2em] opacity-40">Section Override</span>
-            <h3 className="text-xl font-mono font-black tracking-tighter" style={{ color: ui.textMain }}>
-              {MONTHS[dDate.month - 1]} <span className="text-[10px] opacity-20 font-normal">/ {dDate.month.toString().padStart(2, '0')}</span>
-            </h3>
-          </div>
-          <div className="flex space-x-1">
-             <div className="p-1 rounded bg-white/5 opacity-20 hover:opacity-100 cursor-not-allowed"><ChevronLeft size={14} /></div>
-             <div className="p-1 rounded bg-white/5 opacity-20 hover:opacity-100 cursor-not-allowed"><ChevronRight size={14} /></div>
-          </div>
-        </div>
+          {/* Top Fixed Indicator (The Eye) */}
+          <g style={{ filter: `drop-shadow(0 0 6px ${themeColor})` }} z-index="50">
+            <path d="M 175,5 L 225,5" stroke={themeColor} strokeWidth="4" fill="none" strokeLinecap="round" />
+            <path d="M 200,5 L 200,12" stroke={themeColor} strokeWidth="3" fill="none" />
+            <polygon points="193,12 207,12 200,22" fill={themeColor} />
+            <line x1="200" y1="22" x2="200" y2="105" stroke={themeColor} strokeWidth="0.5" opacity="0.3" strokeDasharray="2 2" />
+          </g>
 
-        {/* Days Header */}
-        <div className="grid grid-cols-9 gap-1 mb-2">
-          {DAYS.map(day => (
-            <span key={day} className="text-[6px] text-center font-bold opacity-30 uppercase">{day.slice(0, 3)}</span>
-          ))}
-        </div>
+          {/* Ring 3 (Outer): Days of the Month Wheel */}
+          <motion.g 
+            initial={{ rotate: dayAngleOffset - 90 }} 
+            animate={{ rotate: dayAngleOffset }} 
+            transition={{ type: "spring", damping: 12, stiffness: 40 }}
+            style={{ transformOrigin: '200px 200px' }}
+          >
+            <circle cx="200" cy="200" r="185" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1.5" opacity="0.4" />
+            <circle cx="200" cy="200" r="155" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1.5" opacity="0.4" />
+            
+            {daysArray.map((d, i) => {
+              const angle = (i / currentMonthLength) * 360;
+              const isCurrent = d === dDate.dayOfMonth;
+              
+              return (
+                <g key={`day-${d}`} transform={`rotate(${angle}, 200, 200)`}>
+                  <line x1="200" y1="15" x2="200" y2="21" stroke={isCurrent ? themeColor : (ui?.textMuted || "#555")} strokeWidth={isCurrent ? "2" : "1"} opacity={isCurrent ? 1 : 0.5} />
+                  <line x1="200" y1="39" x2="200" y2="45" stroke={isCurrent ? themeColor : (ui?.textMuted || "#555")} strokeWidth={isCurrent ? "2" : "1"} opacity={isCurrent ? 1 : 0.5} />
+                  <text x="200" y="34" textAnchor="middle" fontSize={isCurrent ? "14" : "10"} fontWeight={isCurrent ? "900" : "bold"} fill={isCurrent ? ui.textMain : ui.textMuted} opacity={isCurrent ? 1 : 0.6} style={isCurrent ? { filter: `drop-shadow(0 0 5px ${themeColor}80)` } : {}}>
+                    {d}
+                  </text>
+                </g>
+              );
+            })}
+          </motion.g>
 
-        {/* Month Grid */}
-        <div className="grid grid-cols-9 gap-1">
-          {days.map(day => {
-            const isToday = day === dDate.dayOfMonth;
-            return (
-              <motion.div 
-                key={day}
-                whileHover={{ scale: 1.1 }}
-                className={`aspect-square flex items-center justify-center rounded-sm text-[8px] font-mono border transition-all duration-300
-                  ${isToday ? 'bg-current text-black font-black' : 'bg-white/5 border-white/5 opacity-60 hover:opacity-100'}
-                `}
-                style={{ 
-                  backgroundColor: isToday ? themeColor : undefined,
-                  borderColor: isToday ? themeColor : undefined,
-                  color: isToday ? '#000' : (day % 9 === 0 ? themeColor : ui.textMain)
-                }}
-              >
-                {day}
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+          {/* Ring 2 (Middle): Days of the Week Wheel */}
+          <motion.g 
+            initial={{ rotate: dowAngleOffset + 90 }} 
+            animate={{ rotate: dowAngleOffset }} 
+            transition={{ type: "spring", damping: 13, stiffness: 38, delay: 0.1 }}
+            style={{ transformOrigin: '200px 200px' }}
+          >
+            {/* Thick background track */}
+            <circle cx="200" cy="200" r="135" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="30" opacity="0.05" />
+            
+            <circle cx="200" cy="200" r="150" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1" opacity="0.4" />
+            <circle cx="200" cy="200" r="120" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1" opacity="0.4" />
+            
+            {dowArray.map((d, i) => {
+              const angle = (i / 9) * 360;
+              const isCurrent = d === dDate.dayOfWeek;
+              return (
+                <g key={`dow-${d}`} transform={`rotate(${angle}, 200, 200)`}>
+                  <line x1="200" y1="50" x2="200" y2="56" stroke={isCurrent ? themeColor : (ui?.textMuted || "#555")} strokeWidth={isCurrent ? "2" : "1"} opacity={isCurrent ? 1 : 0.5} />
+                  <line x1="200" y1="74" x2="200" y2="80" stroke={isCurrent ? themeColor : (ui?.textMuted || "#555")} strokeWidth={isCurrent ? "2" : "1"} opacity={isCurrent ? 1 : 0.5} />
+                  <text 
+                    fill={isCurrent ? ui.textMain : ui.textMuted} 
+                    fontWeight={isCurrent ? "900" : "bold"} 
+                    fontSize={isCurrent ? "11" : "8"}
+                    letterSpacing={isCurrent ? "8" : "6"}
+                    opacity={isCurrent ? 1 : 0.4} 
+                    style={isCurrent ? { filter: `drop-shadow(0 0 5px ${themeColor}80)` } : {}} 
+                    className="uppercase"
+                  >
+                    <textPath href="#dowArc" startOffset="50%" textAnchor="middle" dominantBaseline="central">
+                      {DAYS[d - 1]}
+                    </textPath>
+                  </text>
+                </g>
+              );
+            })}
+          </motion.g>
 
-      {/* Useful Shortcuts / Milestones */}
-      <div className="w-full space-y-2">
-         <div className="text-[8px] uppercase tracking-widest opacity-40 px-1">Upcoming Milestones</div>
-         
-         <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-            <div className="flex items-center space-x-3">
-               <div className="p-2 rounded-lg bg-white/5">
-                  <Milestone size={14} style={{ color: themeColor }} />
-               </div>
-               <div className="flex flex-col">
-                  <span className="text-[8px] uppercase tracking-widest opacity-40">Next Month Sync</span>
-                  <span className="text-[10px] font-mono font-bold">{MONTHS[dDate.month % 10]}</span>
-               </div>
-            </div>
-            <div className="text-right">
-               <span className="text-[8px] opacity-40 uppercase">Remaining</span>
-               <p className="text-xs font-mono">{currentMonthLength - dDate.dayOfMonth} DAYS</p>
-            </div>
-         </div>
+          {/* Ring 1 (Inner): 10 Months Wheel */}
+          <motion.g 
+            initial={{ rotate: monthAngleOffset - 90 }} 
+            animate={{ rotate: monthAngleOffset }} 
+            transition={{ type: "spring", damping: 14, stiffness: 35, delay: 0.2 }}
+            style={{ transformOrigin: '200px 200px' }}
+          >
+            <circle cx="200" cy="200" r="115" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1" opacity="0.4" />
+            <circle cx="200" cy="200" r="85" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1" opacity="0.4" />
+            
+            {monthsArray.map((m, i) => {
+              const angle = (i / 10) * 360;
+              const isCurrent = m === dDate.month;
+              return (
+                <g key={`month-${m}`} transform={`rotate(${angle}, 200, 200)`}>
+                  <line x1="200" y1="85" x2="200" y2="91" stroke={ui?.textMuted || "#555"} strokeWidth="1" opacity={isCurrent ? 1 : 0.4} />
+                  <line x1="200" y1="109" x2="200" y2="115" stroke={ui?.textMuted || "#555"} strokeWidth="1" opacity={isCurrent ? 1 : 0.4} />
+                  <text 
+                    fill={isCurrent ? ui.textMain : ui.textMuted} 
+                    fontWeight={isCurrent ? "900" : "bold"} 
+                    fontSize={isCurrent ? "9" : "6"}
+                    letterSpacing={isCurrent ? "6" : "4"}
+                    opacity={isCurrent ? 1 : 0.4} 
+                    style={isCurrent ? { filter: `drop-shadow(0 0 5px ${themeColor}80)` } : {}} 
+                    className="uppercase"
+                  >
+                    <textPath href="#monthArc" startOffset="50%" textAnchor="middle" dominantBaseline="central">
+                      {MONTHS[m - 1]}
+                    </textPath>
+                  </text>
+                </g>
+              );
+            })}
+          </motion.g>
 
-         <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-            <div className="flex items-center space-x-3">
-               <div className="p-2 rounded-lg bg-white/5">
-                  <Target size={14} style={{ color: themeColor }} />
-               </div>
-               <div className="flex flex-col">
-                  <span className="text-[8px] uppercase tracking-widest opacity-40">Year Conclusion</span>
-                  <span className="text-[10px] font-mono font-bold">BOOT_YEAR_{dDate.year + 1}</span>
-               </div>
-            </div>
-            <div className="text-right">
-               <span className="text-[8px] opacity-40 uppercase">Remaining</span>
-               <p className="text-xs font-mono">{(leap ? 366 : 365) - dDate.dayOfYear} DAYS</p>
-            </div>
-         </div>
-      </div>
+          {/* Center Core HUD */}
+          <circle cx="200" cy="200" r="75" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="1" opacity="0.7" />
+          <circle cx="200" cy="200" r="68" fill="none" stroke={themeColor} strokeWidth="1" strokeDasharray="4 8" opacity="0.4" className="animate-[spin_40s_linear_infinite]" />
+          <circle cx="200" cy="200" r="54" fill="none" stroke={ui?.borderClock || "#333"} strokeWidth="0.5" opacity="0.5" strokeDasharray="2 4" />
+          
+          <text x="200" y="145" textAnchor="middle" fontSize="8" fill={ui.textMuted} letterSpacing="4" opacity="0.8" className="font-bold">MISSION YR</text>
+          <text x="200" y="190" textAnchor="middle" fontSize="36" fontWeight="900" fill={ui.textMain} letterSpacing="1" style={{ filter: `drop-shadow(0 0 10px ${themeColor}80)` }}>
+            {dDate.year}
+          </text>
 
-      <div className="text-[7px] uppercase tracking-[0.4em] opacity-20 text-center pt-4">
-        Time-Sync Status: LOCKED_TO_UTC_CORE
+          {/* In-Core Telemetry Arcs (MO FLUX & YR PATH) */}
+          <g transform="rotate(-90 200 200)">
+             {/* Year Progress Arc */}
+             <circle cx="200" cy="200" r="46" fill="none" stroke={ui?.textMuted || "white"} strokeWidth="1.5" opacity="0.1" />
+             <circle 
+                cx="200" cy="200" r="46" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" opacity="0.8"
+                strokeDasharray={2 * Math.PI * 46}
+                strokeDashoffset={(2 * Math.PI * 46) * (1 - (yearProgress / 100))}
+                style={{ transition: 'stroke-dashoffset 1s ease-out', filter: `drop-shadow(0 0 4px ${themeColor})` }}
+             />
+             
+             {/* Month Progress Arc */}
+             <circle cx="200" cy="200" r="40" fill="none" stroke={ui?.textMuted || "white"} strokeWidth="1.5" opacity="0.1" />
+             <circle 
+                cx="200" cy="200" r="40" fill="none" stroke={themeColor} strokeWidth="1.5" strokeLinecap="round" opacity="0.5"
+                strokeDasharray={2 * Math.PI * 40}
+                strokeDashoffset={(2 * Math.PI * 40) * (1 - (monthProgress / 100))}
+                style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+             />
+          </g>
+
+          {/* Labels for Arcs */}
+          <g opacity="0.8">
+            <text x="200" y="240" textAnchor="middle" fontSize="5" fill={ui.textMuted} letterSpacing="2" className="uppercase font-bold">YR: {yearProgress.toFixed(1)}%</text>
+            <text x="200" y="250" textAnchor="middle" fontSize="4" fill={ui.textMuted} letterSpacing="2" className="uppercase font-bold">MO: {monthProgress.toFixed(1)}%</text>
+          </g>
+
+        </svg>
       </div>
     </div>
   );

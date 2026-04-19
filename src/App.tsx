@@ -19,9 +19,10 @@ import { toDecimalDate, toDecimalTime, getSunTimes, MS_PER_DEC_MINUTE } from './
 export default function App() {
   const {
     now, activeTheme, displayMode, appMode, soundEnabled, voiceEnabled, lightModeOverride,
-    micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration,
+    micEnabled, decryptData, waterIntake, setWaterIntake, isSleeping, sleepStart, lastSleepDuration, sleepQuality, sleepMetrics,
     battery, sunTimes, hasGps, weather, network, tiltRef, heading,
     speedData, swRunning, swTime, swLaps, tmRunning, tmDuration, tmRemaining,
+    zenActive, zenPhase, zenTimer, toggleZen,
     decibels, audioLevels,
     toggleMode, changeTheme, toggleSound, toggleVoice, switchAppMode, toggleMic, handleCenterClick, toggleLightMode,
     toggleStopwatch, lapOrResetStopwatch, addTimerTime, toggleTimer, resetTimer,
@@ -157,7 +158,7 @@ export default function App() {
     offsetSecs = circSecs;
   }
 
-  const isOverlayModule = ['level', 'altimeter', 'nav', 'zen', 'symbols', 'steps', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'radar', 'scanner', 'orbit', 'sonar', 'decrypt', 'stopwatch', 'timer', 'speed', 'water', 'sleep'].includes(appMode);
+  const isOverlayModule = ['level', 'altimeter', 'nav', 'zen', 'symbols', 'steps', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'radar', 'scanner', 'orbit', 'astro', 'sonar', 'decrypt', 'stopwatch', 'timer', 'speed', 'water', 'sleep', 'analog'].includes(appMode);
 
   return (
     <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative
@@ -191,6 +192,9 @@ export default function App() {
         isDay={isDay}
         sunTimes={sunTimes}
         displayMode={displayMode}
+        heading={heading}
+        altitude={altitude}
+        steps={steps}
         toggleMic={toggleMic}
       />
 
@@ -289,20 +293,27 @@ export default function App() {
                   decryptData={decryptData}
                   swTime={swTime}
                   tmRemaining={tmRemaining}
+                  tmDuration={tmDuration}
                   waterIntake={waterIntake}
                   isSleeping={isSleeping}
                   sleepStart={sleepStart}
                   lastSleepDuration={lastSleepDuration}
+                  sleepQuality={sleepQuality}
+                  sleepMetrics={sleepMetrics}
+                  zenActive={zenActive}
+                  zenPhase={zenPhase}
+                  zenTimer={zenTimer}
+                  toggleZen={toggleZen}
                   speedData={speedData}
                 />
              )}
           </div>
 
           {/* LAYER 3: INTERACTIVE CENTER BUTTON (ALWAYS VISIBLE & HIGH Z-INDEX) */}
-          <div className={`absolute transition-all duration-700 z-30 pointer-events-none flex items-center justify-center
+          <div className={`absolute transition-all duration-700 z-50 pointer-events-none flex items-center justify-center
             ${appMode === 'clock' 
               ? 'inset-0' 
-              : 'bottom-24 right-6 w-14 h-14'}`}
+              : 'bottom-[12%] right-[8%] w-14 h-14'}`}
           >
             <div className="pointer-events-auto">
               <CenterButton 

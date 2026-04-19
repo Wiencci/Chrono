@@ -102,23 +102,6 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
         </text>
       </g>
 
-      {/* --- HUD Modular Data Blocks --- (NOT DIMMED) */}
-      <g opacity="0.9">
-        {/* Right HUD Block - Refined Tactical Layout */}
-        <path 
-          d="M 285,180 H 320 V 220 H 310" 
-          fill="none" 
-          stroke={ui.tickMuted} 
-          strokeWidth="0.5" 
-          opacity="0.6"
-        />
-        <text x="288" y="190" fill={ui.effectiveTheme} fontSize="6" fontWeight="bold" style={{ letterSpacing: '1px' }}>TELEMETRY</text>
-        <text x="288" y="202" fill={isLightMode ? "#09090b" : "#f4f4f5"} fontSize="10" fontWeight="bold">
-          {displayMode === 'decimal' ? toDecimalTime(now).seconds : now.getSeconds()}SEC
-        </text>
-        <circle cx="304" cy="212" r="4" fill="none" stroke={ui.tickMuted} strokeWidth="0.5" strokeDasharray="1,2" className="animate-[spin_4s_linear_infinite]" />
-      </g>
-
       {/* Center Grid overlay */}
       <g opacity={isOverlayModule ? 0.2 : 0.05}>
         <line x1="200" y1="130" x2="200" y2="270" stroke={themeColor} strokeWidth="0.5" />

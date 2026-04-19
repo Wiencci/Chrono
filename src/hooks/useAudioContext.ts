@@ -48,21 +48,34 @@ export function useAudioContext(appMode: string, micEnabled: boolean) {
 
   const startMicMonitoring = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Disable noiseSuppression, echoCancellation and autoGainControl to capture raw environmental ambient noise
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          echoCancellation: false, 
+          autoGainControl: false, 
+          noiseSuppression: false 
+        } 
+      });
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const analyser = audioContext.createAnalyser();
       const source = audioContext.createMediaStreamSource(stream);
       
       source.connect(analyser);
-      analyser.fftSize = 256;
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.5;
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       const updateDb = () => {
         analyser.getByteFrequencyData(dataArray);
         let sum = 0;
         for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+        
         const avg = sum / dataArray.length;
-        const db = Math.round(30 + (avg / 255) * 70);
+        // Make it more sensitive - raw ambient noise reflects much faster
+        // Exponential-like mapping to highlight even small noises
+        const rawDb = 30 + (Math.pow(avg / 255, 0.7) * 90); 
+        const db = Math.min(120, Math.round(rawDb));
+        
         setDecibels(db);
         micAnimRef.current = requestAnimationFrame(updateDb);
       };

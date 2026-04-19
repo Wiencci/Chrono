@@ -38,7 +38,6 @@ export const EMFModule: React.FC<EMFModuleProps> = ({ mag, themeColor, ui, displ
             }}
           />
         ))}
-        <div className="absolute top-0 left-0 text-[6px] uppercase opacity-40">Spectrum Analysis / {isDecimal ? 'D-SCALE' : 'SI-SCALE'}</div>
       </div>
 
       <div className="flex items-center justify-between w-full max-w-[260px]">

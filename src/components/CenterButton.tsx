@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed, Wind, Layers, Footprints, Mountain, Orbit, Zap, Activity, Flame, Nfc, Calendar as CalendarIcon } from 'lucide-react';
+import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed, Wind, Layers, Footprints, Mountain, Orbit, Zap, Activity, Flame, Nfc, Calendar as CalendarIcon, Satellite, Watch } from 'lucide-react';
 import { AppMode } from '../types';
 
 interface CenterButtonProps {
@@ -84,12 +84,16 @@ export const CenterButton: React.FC<CenterButtonProps> = ({
         return <Nfc className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'calendar':
         return <CalendarIcon className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'astro':
+        return <Satellite className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'analog':
+        return <Watch className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       default:
         return null;
     }
   };
 
-  const isMinimized = ['zen', 'level', 'steps', 'nav', 'altimeter', 'scanner', 'radar', 'orbit', 'sonar', 'decrypt', 'water', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'stopwatch', 'timer', 'speed', 'sleep'].includes(appMode);
+  const isMinimized = ['zen', 'level', 'steps', 'nav', 'altimeter', 'scanner', 'radar', 'orbit', 'sonar', 'decrypt', 'water', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'stopwatch', 'timer', 'speed', 'sleep', 'astro', 'analog'].includes(appMode);
 
   return (
     <button 

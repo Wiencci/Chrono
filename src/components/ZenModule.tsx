@@ -1,56 +1,25 @@
 
-import React, { useEffect, useState } from 'react';
-import { Wind, Volume2, UserCheck } from 'lucide-react';
+import React from 'react';
+import { Wind, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ZenModuleProps {
+  isActive: boolean;
+  phase: 'inspire' | 'hold' | 'expire' | 'wait';
+  timer: number;
+  toggleZen: () => void;
   themeColor: string;
   ui: any;
   speakAI: (text: string) => void;
   voiceEnabled: boolean;
 }
 
-export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, voiceEnabled }) => {
-  const [phase, setPhase] = useState<'inspire' | 'hold' | 'expire' | 'wait'>('inspire');
-  const [timer, setTimer] = useState(4);
-  const [isActive, setIsActive] = useState(false);
-
-  useEffect(() => {
-    let interval: any;
-    if (isActive) {
-      interval = setInterval(() => {
-        setTimer((t) => {
-          if (t <= 1) {
-            const sequence: Record<string, typeof phase> = {
-              'inspire': 'hold',
-              'hold': 'expire',
-              'expire': 'wait',
-              'wait': 'inspire'
-            };
-            setPhase(sequence[phase]);
-            return 4;
-          }
-          return t - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, phase]);
-
-  const toggleZen = () => {
-    const next = !isActive;
-    setIsActive(next);
-    if (next) {
-        setPhase('inspire');
-        setTimer(4);
-        if (voiceEnabled) speakAI("Ritual de centralização iniciado. Foque na respiração.");
-    } else {
-        if (voiceEnabled) speakAI("Sessão encerrada. Equilíbrio restabelecido.");
-    }
-  };
-
+export const ZenModule: React.FC<ZenModuleProps> = ({ 
+    isActive, phase, timer, toggleZen,
+    themeColor, ui 
+}) => {
   return (
-    <div className="flex flex-col items-center justify-center space-y-8 w-full h-full">
+    <div className="flex flex-col items-center justify-center space-y-6 w-full h-full mt-2">
       <div 
         onClick={toggleZen}
         className="relative w-64 h-64 flex items-center justify-center cursor-pointer group"
@@ -59,6 +28,7 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
         <AnimatePresence>
             {isActive && (
                 <motion.div
+                    key="atmospheric-bg"
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ 
                         scale: phase === 'inspire' || phase === 'hold' ? 1.4 : 0.7,
@@ -83,11 +53,12 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
            style={{ borderColor: themeColor }}
         />
 
+        {/* Central Breathing Ring */}
         <div 
-            className={`relative z-10 w-32 h-32 rounded-full border flex flex-col items-center justify-center transition-all duration-1000 ${isActive ? 'bg-black/40 border-opacity-100' : 'bg-white/5 border-opacity-10'}`}
+            className={`relative z-10 w-28 h-28 rounded-full border flex flex-col items-center justify-center transition-all duration-1000 ${isActive ? 'bg-black/60 border-opacity-100 shadow-2xl backdrop-blur-xl' : 'bg-white/5 border-opacity-10'}`}
             style={{ 
                 borderColor: themeColor,
-                boxShadow: isActive ? `0 0 40px ${themeColor}20` : 'none'
+                boxShadow: isActive ? `0 0 40px ${themeColor}40` : 'none'
             }}
         >
           <AnimatePresence mode="wait">
@@ -100,14 +71,15 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
             >
               {isActive ? (
                 <>
-                  <Wind size={24} style={{ color: themeColor }} className="mb-2 opacity-80" />
-                  <span className="text-[10px] font-bold tracking-[0.3em]" style={{ color: themeColor }}>{phase.toUpperCase()}</span>
-                  <span className="text-3xl font-mono font-black" style={{ color: ui.textMain }}>{timer}</span>
+                  <Wind size={24} style={{ color: themeColor }} className="mb-2 opacity-100 animate-pulse" />
+                  {/* Highlighted text for better contrast */}
+                  <span className="text-[11px] font-black tracking-[0.3em] brightness-125 select-none" style={{ color: themeColor, textShadow: `0 0 10px ${themeColor}80` }}>{phase.toUpperCase()}</span>
+                  <span className="text-4xl font-mono font-black text-white drop-shadow-lg select-none">{timer}</span>
                 </>
               ) : (
                 <>
                   <Volume2 size={24} className="opacity-20 mb-2" />
-                  <span className="text-[8px] opacity-40 uppercase tracking-[0.2em] font-bold text-center">Protocolo Zen</span>
+                  <span className={`text-[8px] opacity-40 uppercase tracking-[0.2em] font-bold text-center ${ui.textMuted}`}>Protocolo Zen</span>
                   <span className="text-[7px] opacity-30 uppercase mt-1">Clique para Iniciar</span>
                 </>
               )}
@@ -116,15 +88,9 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
         </div>
       </div>
 
-      <div className="text-center space-y-1">
-        <div className="flex items-center justify-center space-x-4 opacity-20">
-           <div className={`w-8 h-[1px] ${phase === 'inspire' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
-           <div className={`w-8 h-[1px] ${phase === 'hold' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
-           <div className={`w-8 h-[1px] ${phase === 'expire' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
-           <div className={`w-8 h-[1px] ${phase === 'wait' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
-        </div>
-        <p className="text-[8px] uppercase tracking-[0.4em] font-bold pt-4" style={{ color: themeColor }}>Frequência Delta Ativa</p>
-        <p className="text-[7px] opacity-40 uppercase tracking-widest">Estabilização neural em curso</p>
+      <div className="text-center pt-8">
+        <p className="text-[9px] uppercase tracking-[0.4em] font-black brightness-110" style={{ color: themeColor }}>Frequência Delta Ativa</p>
+        <p className={`text-[7px] opacity-60 uppercase tracking-widest ${ui.textMuted}`}>Estabilização neural em curso</p>
       </div>
     </div>
   );
