@@ -300,6 +300,7 @@ export default function App() {
                   lastSleepDuration={lastSleepDuration}
                   sleepQuality={sleepQuality}
                   sleepMetrics={sleepMetrics}
+                  sunTimes={sunTimes}
                   zenActive={zenActive}
                   zenPhase={zenPhase}
                   zenTimer={zenTimer}

@@ -22,7 +22,20 @@ export const AstroModule: React.FC<AstroModuleProps> = ({ themeColor, ui, displa
         // Using NASA public DEMO_KEY. In production, a real key is needed if rate limits are hit.
         const res = await fetch(`https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=DEMO_KEY`);
         const data = await res.json();
-        const todayNeos = data.near_earth_objects[today] || [];
+        
+        if (data.error || !data.near_earth_objects) {
+          throw new Error(data.error?.message || "NASA API Structure Error");
+        }
+        
+        let todayNeos: any[] = [];
+        // Try the exact date key first
+        if (data.near_earth_objects[today]) {
+          todayNeos = data.near_earth_objects[today];
+        } else {
+          // Fallback: take the first available date key if "today" is missing in response
+          const firstKey = Object.keys(data.near_earth_objects)[0];
+          if (firstKey) todayNeos = data.near_earth_objects[firstKey];
+        }
         
         // Sort by closest distance
         todayNeos.sort((a: any, b: any) => {

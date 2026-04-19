@@ -518,6 +518,7 @@ interface ModuleRendererProps {
   lastSleepDuration: number;
   sleepQuality: number;
   sleepMetrics: {disturbances: number, avgNoise: number, avgMove: number};
+  sunTimes: { rise: number, set: number };
   zenActive: boolean;
   zenPhase: 'inspire' | 'hold' | 'expire' | 'wait';
   zenTimer: number;
@@ -531,6 +532,7 @@ export const ModuleRenderer: React.FC<ModuleRendererProps> = ({
   altitude, weather, mag, seismoData, lux,
   audioLevels, isScanningBt, scanResults, planets, daysSinceJ2000, decryptData,
   swTime, tmRemaining, tmDuration, waterIntake, isSleeping, sleepStart, lastSleepDuration, sleepQuality, sleepMetrics,
+  sunTimes,
   zenActive, zenPhase, zenTimer, toggleZen,
   speedData
 }) => {
@@ -649,6 +651,7 @@ export const ModuleRenderer: React.FC<ModuleRendererProps> = ({
         <ModuleLayout title="Lumen Meter" subtitle="Ambient Lux Sensor" themeColor={themeColor} ui={ui}>
           <LumenModule 
             lux={lux}
+            sunTimes={sunTimes}
             themeColor={themeColor}
             ui={ui}
             displayMode={displayMode}

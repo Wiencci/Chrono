@@ -5,13 +5,46 @@ import { motion } from 'motion/react';
 
 interface LumenModuleProps {
   lux: number | null;
+  sunTimes: { rise: number, set: number };
   themeColor: string;
   ui: any;
   displayMode: 'standard' | 'decimal';
 }
 
-export const LumenModule: React.FC<LumenModuleProps> = ({ lux, themeColor, ui, displayMode }) => {
-  const displayLux = lux !== null ? lux : 450; // Mock if no sensor
+export const LumenModule: React.FC<LumenModuleProps> = ({ lux, sunTimes, themeColor, ui, displayMode }) => {
+  const [internalLux, setInternalLux] = React.useState(450);
+
+  React.useEffect(() => {
+    if (lux !== null) {
+        setInternalLux(lux);
+    } else {
+        const interval = setInterval(() => {
+            const now = new Date();
+            const hour = now.getHours() + now.getMinutes() / 60;
+            
+            // Calculate ambient light based on sun position
+            let base = 20; // Default night lux
+            if (hour > sunTimes.rise && hour < sunTimes.set) {
+                // Sinusoidal curve for daylight brilliance
+                const daylightProgress = (hour - sunTimes.rise) / (sunTimes.set - sunTimes.rise);
+                base = 1200 * Math.sin(daylightProgress * Math.PI);
+            } else if (hour > sunTimes.rise - 1 && hour <= sunTimes.rise) {
+                // Dawn transition
+                base = 20 + 80 * (hour - (sunTimes.rise - 1));
+            } else if (hour >= sunTimes.set && hour < sunTimes.set + 1) {
+                // Dusk transition
+                base = 100 - 80 * (hour - sunTimes.set);
+            }
+            
+            // Add sensor jitter for realism
+            const jitter = (Math.random() - 0.5) * 15;
+            setInternalLux(Math.max(5, Math.round(base + jitter)));
+        }, 3000);
+        return () => clearInterval(interval);
+    }
+  }, [lux, sunTimes]);
+
+  const displayLux = internalLux;
   const isDecimal = displayMode === 'decimal';
   const isDark = displayLux < 50;
   const isBlinding = displayLux > 2000;
