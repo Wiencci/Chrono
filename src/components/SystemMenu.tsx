@@ -89,7 +89,7 @@ export const SystemMenu: React.FC<SystemMenuProps> = ({
             <div className="text-[10px] uppercase font-bold tracking-widest mb-2" style={{ color: themeColor }}>
               Core Override
             </div>
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               {THEMES.map(theme => (
                 <button
                   key={theme.id}

@@ -15,7 +15,7 @@ export const AltimeterModule: React.FC<AltimeterModuleProps> = ({ altitude, them
   const tapeOffset = (displayAltitude % 100);
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 space-y-4 w-full h-full">
+    <div className="flex flex-col items-center justify-center p-4 space-y-4 w-full h-full pb-16">
       <div className="flex items-center justify-between w-full h-64 px-4">
         {/* Left Side: Vertical Tape for Scale */}
         <div className="w-12 h-64 relative overflow-hidden flex flex-col items-end">

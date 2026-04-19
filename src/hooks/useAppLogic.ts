@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { AppMode, THEMES, Theme } from '../types';
 import { soundEngine } from '../services/sound-engine';
-import { getDecimalTime, getDecimalDate } from '../lib/time-utils';
+import { toDecimalTime, toDecimalDate } from '../lib/decimalLogic';
 import { vibrate, sendNotification, playBase64PCM } from '../lib/device-utils';
 import { getTacticalBriefing, analyzeLogs, generateVoice } from '../services/ai-service';
 import { useComplications } from './useComplications';
@@ -49,7 +49,7 @@ export function useAppLogic() {
 
   const { 
     battery, sunTimes, hasGps, weather, network, tiltRef, 
-    heading, altitude, steps, motion, coords, 
+    heading, altitude, steps, motion, mag, lux, seismoData, coords, 
     requestPermissions 
   } = useComplications(arEnabled);
   const { speedData, resetMaxSpeed } = useSpeedometer(appMode);
@@ -111,8 +111,8 @@ export function useAppLogic() {
 
         let s, m, h, dy, mn;
         if (dMode === 'decimal') {
-          const dt = getDecimalTime(newNow);
-          const dd = getDecimalDate(newNow);
+          const dt = toDecimalTime(newNow);
+          const dd = toDecimalDate(newNow);
           s = dt.seconds; m = dt.minutes; h = dt.hours; dy = dd.dayOfMonth; mn = dd.month;
         } else {
           s = newNow.getSeconds(); m = newNow.getMinutes(); h = newNow.getHours(); dy = newNow.getDate(); mn = newNow.getMonth();
@@ -208,8 +208,8 @@ export function useAppLogic() {
   };
 
   const speakTime = () => {
-    const dTime = getDecimalTime(now);
-    const dDate = getDecimalDate(now);
+    const dTime = toDecimalTime(now);
+    const dDate = toDecimalDate(now);
     const text = `Agora são ${dTime.hours} horas, ${dTime.minutes} minutos e ${dTime.seconds} segundos decimais. Ciclo ${dDate.dayOfWeek} de nove.`;
     speakAI(text);
   };
@@ -234,7 +234,7 @@ export function useAppLogic() {
     
     const pad = (n: number) => n.toString().padStart(2, '0');
     const timeNow = new Date();
-    const dt = getDecimalTime(timeNow);
+    const dt = toDecimalTime(timeNow);
     
     const timeStr = displayMode === 'decimal' 
       ? `${pad(dt.hours)}:${pad(dt.minutes)}:${pad(dt.seconds)}`
@@ -321,7 +321,7 @@ export function useAppLogic() {
   useEffect(() => {
     const checkReminders = () => {
       if (!voiceEnabled) return;
-      const dTime = getDecimalTime(now);
+      const dTime = toDecimalTime(now);
       const h = dTime.hours;
       
       // Water reminder every 2 decimal hours between 3.5h and 8.5h (approx 8 AM and 8 PM)
@@ -364,6 +364,11 @@ export function useAppLogic() {
         setSleepStart(Date.now());
       }
     }
+    else if (appMode === 'level') {
+      vibrate();
+      requestPermissions();
+      if (voiceEnabled) speakAI("Sincronizando sensores inerciais.");
+    }
     else if (appMode === 'nav') {
       if (hasGps) {
         navigator.geolocation.getCurrentPosition((pos) => {
@@ -393,6 +398,6 @@ export function useAppLogic() {
     requestPermissions,
     aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
     speakAI,
-    aiEnabled, baseLocation, steps, altitude, motion, stealthMode, setStealthMode, coords
+    aiEnabled, baseLocation, steps, altitude, motion, mag, lux, seismoData, stealthMode, setStealthMode, coords
   };
 }

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed, Wind, Layers, Footprints, Mountain, Orbit } from 'lucide-react';
+import { Sun, Moon, Square, Play, Navigation, Scan, Bluetooth, Compass, Radio, Hash, Droplet, Bed, Wind, Layers, Footprints, Mountain, Orbit, Zap, Activity, Flame, Nfc, Calendar as CalendarIcon } from 'lucide-react';
 import { AppMode } from '../types';
 
 interface CenterButtonProps {
@@ -72,19 +72,31 @@ export const CenterButton: React.FC<CenterButtonProps> = ({
         return <Mountain className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       case 'orbit':
         return <Orbit className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'emf':
+        return <Zap className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'seismo':
+        return <Activity className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'lumen':
+        return <Sun className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'thermal':
+        return <Flame className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'nfc':
+        return <Nfc className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
+      case 'calendar':
+        return <CalendarIcon className={s} style={{ color: themeColor, filter: `drop-shadow(0 0 10px ${themeColor})` }} />;
       default:
         return null;
     }
   };
 
-  const isMinimized = ['zen', 'level', 'steps', 'nav', 'altimeter', 'scanner', 'radar', 'orbit', 'sonar', 'decrypt', 'water'].includes(appMode);
+  const isMinimized = ['zen', 'level', 'steps', 'nav', 'altimeter', 'scanner', 'radar', 'orbit', 'sonar', 'decrypt', 'water', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'stopwatch', 'timer', 'speed', 'sleep'].includes(appMode);
 
   return (
     <button 
       onClick={handleCenterClick} 
-      className={`absolute z-40 rounded-full flex items-center justify-center ${ui.btnBg} border-2 ${ui.btnBorder} shadow-[0_0_30px_rgba(0,0,0,0.9)] hover:scale-105 ${ui.btnHoverBorder} transition-all duration-300 group cursor-pointer
+      className={`relative z-40 rounded-full flex items-center justify-center ${ui.btnBg} border-2 ${ui.btnBorder} shadow-[0_0_30px_rgba(0,0,0,0.9)] hover:scale-105 ${ui.btnHoverBorder} transition-all duration-300 group cursor-pointer
         ${isMinimized 
-          ? 'w-10 h-10 sm:w-12 sm:h-12 translate-x-[80px] translate-y-[80px] sm:translate-x-[100px] sm:translate-y-[100px]' 
+          ? 'w-12 h-12' 
           : 'w-20 h-20 sm:w-28 sm:h-28'}`}
       title={appMode === 'clock' ? "Alternar Modo" : "Ação Central"}
     >

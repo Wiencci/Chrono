@@ -1,25 +1,20 @@
 
 import React, { useRef, useState } from 'react';
-import { RefreshCw, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useAppLogic } from './hooks/useAppLogic';
 import { useAR } from './hooks/useAR';
 import { useBluetooth } from './hooks/useBluetooth';
 import { ClockRings } from './components/ClockRings';
-import { OuterRing } from './components/ModeButtons';
 import { ClockLabels } from './components/ClockLabels';
 import { CenterButton } from './components/CenterButton';
-import { ZenModule } from './components/ZenModule';
-import { LevelModule } from './components/LevelModule';
-import { PedometerModule } from './components/PedometerModule';
-import { WaypointModule } from './components/WaypointModule';
-import { AltimeterModule } from './components/AltimeterModule';
+import { ModuleRenderer } from './components/ModuleRenderer';
 import { AIBriefing } from './components/AIBriefing';
 import { MissionLogs } from './components/MissionLogs';
 import { SystemMenu } from './components/SystemMenu';
 import { TelemetryBar } from './components/TelemetryBar';
 import { ManualOverlay } from './components/ManualOverlay';
 import { AppLauncher } from './components/AppLauncher';
-import { getDecimalDate, getDecimalTime } from './lib/time-utils';
+import { toDecimalDate, toDecimalTime, getSunTimes, MS_PER_DEC_MINUTE } from './lib/decimalLogic';
 
 export default function App() {
   const {
@@ -33,7 +28,7 @@ export default function App() {
     requestPermissions,
     aiBriefing, missionLogs, addMissionLog, clearLogs, fetchBriefing, analyzeMissionLogs,
     speakAI,
-    aiEnabled, toggleAiEnabled, baseLocation, steps, altitude, motion, stealthMode, toggleStealthMode, coords
+    aiEnabled, toggleAiEnabled, baseLocation, steps, altitude, motion, mag, lux, seismoData, stealthMode, toggleStealthMode, coords
   } = useAppLogic();
 
   const { arEnabled, videoRef, toggleAR } = useAR(soundEnabled);
@@ -57,20 +52,24 @@ export default function App() {
     clockRef.current.style.transform = `rotateX(0deg) rotateY(0deg)`;
   };
 
-  const decimalTime = getDecimalTime(now);
-  const decimalDate = getDecimalDate(now);
+  const decimalTime = toDecimalTime(now);
+  const decimalDate = toDecimalDate(now);
   const currentStandardHour = now.getHours() + now.getMinutes() / 60;
   const isDay = currentStandardHour >= sunTimes.rise && currentStandardHour < sunTimes.set;
   const isLightMode = lightModeOverride !== null ? lightModeOverride : isDay;
 
   const themeColor = activeTheme.hex;
   
-  // High contrast accent for light mode readability (darker versions of theme colors)
   const effectiveTheme = isLightMode && !arEnabled ? {
-    '#ccff00': '#7a9900', // Neon -> Olive/Dark Neon
-    '#ffb000': '#bf8400', // Amber -> Deep Amber
-    '#00e5ff': '#008c99', // Cyan -> Deep Cyan
-    '#ff003c': '#cc0030', // Crimson -> Dark Crimson
+    '#ccff00': '#7a9900',
+    '#ffb000': '#bf8400',
+    '#00e5ff': '#008c99',
+    '#ff003c': '#cc0030',
+    '#bf00ff': '#8a00b8',
+    '#00ff88': '#00b35f',
+    '#ff4d00': '#bf3a00',
+    '#ffffff': '#71717a',
+    '#2e5bff': '#1d3bbd',
   }[themeColor] || themeColor : themeColor;
 
   const ui = {
@@ -158,10 +157,12 @@ export default function App() {
     offsetSecs = circSecs;
   }
 
-  const isOverlayModule = ['level', 'altimeter', 'nav', 'zen', 'symbols', 'steps'].includes(appMode);
+  const isOverlayModule = ['level', 'altimeter', 'nav', 'zen', 'symbols', 'steps', 'emf', 'seismo', 'lumen', 'thermal', 'nfc', 'calendar', 'radar', 'scanner', 'orbit', 'sonar', 'decrypt', 'stopwatch', 'timer', 'speed', 'water', 'sleep'].includes(appMode);
 
   return (
-    <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative`}>
+    <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative
+      ${appMode === 'thermal' ? 'grayscale-[0.5] contrast-[1.5] brightness-[1.2] sepia-[0.3] hue-rotate-[180deg]' : ''}`}>
+      
       <AIBriefing 
         briefing={aiBriefing} 
         themeColor={ui.effectiveTheme} 
@@ -193,169 +194,137 @@ export default function App() {
         toggleMic={toggleMic}
       />
 
-      {/* Background Video (AR) */}
       <video ref={videoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-1000 ${arEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
       
-      {/* UI Overlay Layers */}
       <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
-        {/* CRT Scanlines */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 118, 0.06))', backgroundSize: '100% 4px, 3px 100%' }} />
-        
-        {/* Vigette */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
       </div>
 
       <div className="relative perspective-[1000px] z-10" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
         <div 
           ref={clockRef}
-          className={`relative w-[350px] h-[350px] sm:w-[460px] sm:h-[460px] rounded-full border-[12px] sm:border-[14px] ${ui.borderClock} ${ui.bgClock} flex items-center justify-center transition-transform duration-100 ease-out`}
+          className={`relative w-[350px] h-[350px] sm:w-[460px] sm:h-[460px] rounded-full border-[12px] sm:border-[14px] ${ui.borderClock} ${ui.bgClock} flex items-center justify-center transition-all duration-500 ease-out z-10`}
           style={{ boxShadow: ui.clockShadow }}
         >
-          <OuterRing 
-            appMode={appMode} 
-            themeColor={ui.effectiveTheme} 
-            ui={ui} 
-            switchAppMode={switchAppMode}
-            toggleBtScan={toggleBtScan}
-            isScanningBt={scanning}
-          />
-          
-          <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
+          {/* LAYER 1: CHRONO CORE & TELEMETRY */}
+          <div className="absolute inset-0 rounded-full transition-all duration-700 pointer-events-none z-10">
+            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
 
-          <svg className={`absolute inset-0 w-full h-full z-10 pointer-events-none transition-opacity duration-500 ${isOverlayModule ? 'opacity-10' : 'opacity-100'}`} viewBox="0 0 400 400">
-            {Array.from({ length: (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60 }).map((_, i) => {
-              const total = (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60;
-              const angle = (i / total) * 360;
-              const rad = (angle - 90) * (Math.PI / 180);
-              const isMajor = (appMode === 'clock' && displayMode === 'decimal') ? i % 10 === 0 : i % 5 === 0;
-              const r1 = isMajor ? 178 : 184;
-              const r2 = 190;
-              return (
-                <line 
-                  key={i} 
-                  x1={200 + r1 * Math.cos(rad)} y1={200 + r1 * Math.sin(rad)} 
-                  x2={200 + r2 * Math.cos(rad)} y2={200 + r2 * Math.sin(rad)} 
-                  stroke={isMajor ? ui.effectiveTheme : ui.tickMuted} 
-                  strokeWidth={isMajor ? "3" : "1.5"} 
-                  style={isMajor ? { filter: `drop-shadow(0 0 4px ${ui.effectiveTheme})` } : { transition: 'stroke 1s ease' }}
+            {/* Dimmable Background Components */}
+            <div 
+              className="absolute inset-0 transition-all duration-700"
+              style={{ 
+                filter: isOverlayModule ? 'brightness(0.25) saturate(0.2) blur(4px)' : 'brightness(1) saturate(1) blur(0px)'
+              }}
+            >
+              <svg className={`absolute inset-0 w-full h-full z-10 pointer-events-none transition-opacity duration-500 ${isOverlayModule ? 'opacity-10' : 'opacity-100'}`} viewBox="0 0 400 400">
+                {Array.from({ length: (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60 }).map((_, i) => {
+                  const total = (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60;
+                  const angle = (i / total) * 360;
+                  const rad = (angle - 90) * (Math.PI / 180);
+                  const isMajor = (appMode === 'clock' && displayMode === 'decimal') ? i % 10 === 0 : i % 5 === 0;
+                  const r1 = isMajor ? 178 : 184;
+                  const r2 = 190;
+                  return (
+                    <line 
+                      key={i} 
+                      x1={200 + r1 * Math.cos(rad)} y1={200 + r1 * Math.sin(rad)} 
+                      x2={200 + r2 * Math.cos(rad)} y2={200 + r2 * Math.sin(rad)} 
+                      stroke={isMajor ? ui.effectiveTheme : ui.tickMuted} 
+                      strokeWidth={isMajor ? "3" : "1.5"} 
+                      style={isMajor ? { filter: `drop-shadow(0 0 4px ${ui.effectiveTheme})` } : { transition: 'stroke 1s ease' }}
+                    />
+                  );
+                })}
+              </svg>
+
+              <ClockRings 
+                appMode={appMode}
+                themeColor={ui.effectiveTheme}
+                ui={ui}
+                rings={{ radiusHours, radiusMins, radiusSecs, circHours, circMins, circSecs, offsetHours, offsetMins, offsetSecs }}
+                isOverlayModule={isOverlayModule}
+              />
+
+              <ClockLabels 
+                appMode={appMode}
+                displayMode={displayMode}
+                themeColor={ui.effectiveTheme}
+                now={now}
+                decimalTime={decimalTime}
+                decimalDate={decimalDate}
+                ui={ui}
+                isLightMode={isLightMode}
+                isOverlayModule={isOverlayModule}
+              />
+            </div>
+          </div>
+
+          {/* LAYER 2: SENSOR MODULE OVERLAY (HIGH PRIORITY) */}
+          <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+             {isOverlayModule && (
+                <ModuleRenderer 
+                  appMode={appMode}
+                  themeColor={ui.effectiveTheme}
+                  ui={ui}
+                  displayMode={displayMode}
+                  voiceEnabled={voiceEnabled}
+                  speakAI={speakAI}
+                  motion={motion}
+                  steps={steps}
+                  baseLocation={baseLocation}
+                  coords={coords}
+                  heading={heading}
+                  altitude={altitude}
+                  weather={weather}
+                  mag={mag}
+                  seismoData={seismoData}
+                  lux={lux}
+                  audioLevels={audioLevels}
+                  isScanningBt={scanning}
+                  scanResults={scanResults}
+                  planets={planets}
+                  daysSinceJ2000={daysSinceJ2000}
+                  decryptData={decryptData}
+                  swTime={swTime}
+                  tmRemaining={tmRemaining}
+                  waterIntake={waterIntake}
+                  isSleeping={isSleeping}
+                  sleepStart={sleepStart}
+                  lastSleepDuration={lastSleepDuration}
+                  speedData={speedData}
                 />
-              );
-            })}
-          </svg>
+             )}
+          </div>
 
-          <ClockRings 
-            appMode={appMode}
-            themeColor={ui.effectiveTheme}
-            ui={ui}
-            rings={{ radiusHours, radiusMins, radiusSecs, circHours, circMins, circSecs, offsetHours, offsetMins, offsetSecs }}
-            planets={planets}
-            daysSinceJ2000={daysSinceJ2000}
-            speedData={speedData}
-            audioLevels={audioLevels}
-            isScanningBt={scanning}
-            waterIntake={waterIntake}
-            waterGoal={2000}
-            isSleeping={isSleeping}
-            isOverlayModule={isOverlayModule}
-          />
-
-          {appMode === 'zen' && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-8 pointer-events-auto">
-              <ZenModule 
-                themeColor={ui.effectiveTheme} 
-                ui={ui} 
-                speakAI={speakAI}
-                voiceEnabled={voiceEnabled}
-              />
-            </div>
-          )}
-
-          {appMode === 'level' && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
-              <LevelModule 
-                motion={motion}
+          {/* LAYER 3: INTERACTIVE CENTER BUTTON (ALWAYS VISIBLE & HIGH Z-INDEX) */}
+          <div className={`absolute transition-all duration-700 z-30 pointer-events-none flex items-center justify-center
+            ${appMode === 'clock' 
+              ? 'inset-0' 
+              : 'bottom-24 right-6 w-14 h-14'}`}
+          >
+            <div className="pointer-events-auto">
+              <CenterButton 
+                appMode={appMode}
                 themeColor={ui.effectiveTheme}
+                isDay={isDay}
+                swRunning={swRunning}
+                tmRunning={tmRunning}
+                speedData={speedData}
+                isScanningBt={scanning}
+                isSleeping={isSleeping}
                 ui={ui}
+                handleCenterClick={handleCenterClick}
               />
             </div>
-          )}
+          </div>
 
-          {appMode === 'steps' && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
-              <PedometerModule 
-                steps={steps}
-                themeColor={ui.effectiveTheme}
-                ui={ui}
-              />
-            </div>
-          )}
-
-          {appMode === 'nav' && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
-              <WaypointModule 
-                baseLocation={baseLocation}
-                currentLocation={coords}
-                heading={heading}
-                themeColor={ui.effectiveTheme}
-                ui={ui}
-              />
-            </div>
-          )}
-
-          {appMode === 'altimeter' && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center p-4 pointer-events-auto">
-              <AltimeterModule 
-                altitude={altitude}
-                themeColor={ui.effectiveTheme}
-                weather={weather}
-                ui={ui}
-              />
-            </div>
-          )}
-
-          <CenterButton 
-            appMode={appMode}
-            themeColor={ui.effectiveTheme}
-            isDay={isDay}
-            swRunning={swRunning}
-            tmRunning={tmRunning}
-            speedData={speedData}
-            isScanningBt={scanning}
-            isSleeping={isSleeping}
-            ui={ui}
-            handleCenterClick={handleCenterClick}
-          />
-
-          <ClockLabels 
-            appMode={appMode}
-            displayMode={displayMode}
-            themeColor={ui.effectiveTheme}
-            now={now}
-            decimalTime={decimalTime}
-            decimalDate={decimalDate}
-            swTime={swTime}
-            tmRemaining={tmRemaining}
-            speedData={speedData}
-            btDevices={scanResults}
-            decryptData={decryptData}
-            isSleeping={isSleeping}
-            sleepStart={sleepStart}
-            lastSleepDuration={lastSleepDuration}
-            daysSinceJ2000={daysSinceJ2000}
-            audioLevels={audioLevels}
-            waterIntake={waterIntake}
-            waterGoal={2000}
-            isScanningBt={scanning}
-            heading={heading}
-            ui={ui}
-            isLightMode={isLightMode}
-            isOverlayModule={isOverlayModule}
-          />
-
+          {/* LAYER 4: MODE-SPECIFIC CONTROLS */}
           {appMode === 'stopwatch' && (
-            <div className="absolute bottom-[12%] z-30 flex flex-col items-center w-full px-12">
+            <div className="absolute bottom-[12%] z-40 flex flex-col items-center w-full px-12 pointer-events-auto">
               <button 
-                onClick={appMode === 'stopwatch' ? lapOrResetStopwatch : undefined} 
+                onClick={lapOrResetStopwatch} 
                 className={`flex items-center space-x-1 text-[10px] uppercase tracking-widest border px-3 py-1 rounded transition-colors ${ui.controlBtnBorder}`}
               >
                 {swRunning ? 'Lap' : 'Reset'}
@@ -364,11 +333,11 @@ export default function App() {
           )}
 
           {appMode === 'timer' && (
-            <div className="absolute bottom-[14%] z-30 flex flex-col items-center w-full px-12">
+            <div className="absolute bottom-[14%] z-40 flex flex-col items-center w-full px-12 pointer-events-auto">
               {tmRemaining <= 0 ? (
                 <div className="flex space-x-2">
                   {[1, 5, 15].map(m => (
-                    <button key={m} onClick={() => addTimerTime(m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: ui.effectiveTheme }}>+{m}m</button>
+                    <button key={m} onClick={() => addTimerTime(displayMode === 'decimal' ? (m * 86400 / 60000) : m)} className={`text-[10px] border px-3 py-1.5 rounded transition-colors ${ui.controlBtnBorder}`} style={{ color: ui.effectiveTheme }}>+{m}m</button>
                   ))}
                 </div>
               ) : (

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { getSunTimes } from '../lib/time-utils';
+import { getSunTimes } from '../lib/decimalLogic';
 
 export function useComplications(arEnabled: boolean) {
   const [battery, setBattery] = useState<{ level: number, charging: boolean } | null>(null);
@@ -12,12 +12,14 @@ export function useComplications(arEnabled: boolean) {
   const [altitude, setAltitude] = useState<number | null>(null);
   const [steps, setSteps] = useState(0);
   const [motion, setMotion] = useState({ x: 0, y: 0, z: 0 });
+  const [mag, setMag] = useState({ x: 0, y: 0, z: 0, total: 0 });
+  const [lux, setLux] = useState<number | null>(null);
+  const [seismoData, setSeismoData] = useState<number[]>(new Array(40).fill(0));
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const tiltRef = useRef({ x: 0, y: 0 });
   const lastStepTime = useRef(0);
 
   const requestPermissions = async () => {
-    // iOS 13+ requires explicit permission for DeviceMotion and Orientation
     if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
       try {
         const permission = await (DeviceOrientationEvent as any).requestPermission();
@@ -36,7 +38,6 @@ export function useComplications(arEnabled: boolean) {
   };
 
   const handleOrientation = (e: DeviceOrientationEvent) => {
-    // Tilt logic
     if (e.beta !== null && e.gamma !== null) {
       let x = e.beta - 45;
       let y = e.gamma;
@@ -45,7 +46,6 @@ export function useComplications(arEnabled: boolean) {
       tiltRef.current = { x: -x, y: y };
     }
 
-    // Compass logic
     const webkitHeading = (e as any).webkitCompassHeading;
     if (webkitHeading !== undefined) {
       setHeading(webkitHeading);
@@ -57,13 +57,15 @@ export function useComplications(arEnabled: boolean) {
   const handleMotion = (e: DeviceMotionEvent) => {
     if (e.accelerationIncludingGravity) {
       const { x, y, z } = e.accelerationIncludingGravity;
-      setMotion({ x: x || 0, y: y || 0, z: z || 0 });
-
-      // Simple step counting logic
-      const acc = Math.sqrt((x || 0)**2 + (y || 0)**2 + (z || 0)**2);
-      if (acc > 12) { // Threshold for step
+      const lx = x || 0;
+      const ly = y || 0;
+      const lz = z || 0;
+      setMotion({ x: lx, y: ly, z: lz });
+      const acc = Math.sqrt(lx**2 + ly**2 + lz**2);
+      setSeismoData(prev => [...prev.slice(1), acc]);
+      if (acc > 12) {
         const now = Date.now();
-        if (now - lastStepTime.current > 300) { // Min 300ms between steps
+        if (now - lastStepTime.current > 300) {
           setSteps(s => s + 1);
           lastStepTime.current = now;
         }
@@ -72,7 +74,6 @@ export function useComplications(arEnabled: boolean) {
   };
 
   useEffect(() => {
-    // Network Status
     const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
     const updateNetwork = () => {
       const status = conn?.effectiveType || (navigator.onLine ? 'online' : 'offline');
@@ -84,7 +85,6 @@ export function useComplications(arEnabled: boolean) {
     window.addEventListener('online', updateNetwork);
     window.addEventListener('offline', updateNetwork);
 
-    // Battery
     const updateBattery = (b: any) => {
       setBattery({ level: b.level, charging: b.charging });
     };
@@ -97,7 +97,6 @@ export function useComplications(arEnabled: boolean) {
       });
     }
 
-    // GPS
     if ('geolocation' in navigator) {
       const geoId = navigator.geolocation.watchPosition((pos) => {
         const { latitude, longitude, altitude: alt } = pos.coords;
@@ -107,7 +106,6 @@ export function useComplications(arEnabled: boolean) {
         if (alt !== null) setAltitude(alt);
       }, () => {
         setHasGps(false);
-        console.warn('GPS denied, using default sun times.');
       }, { enableHighAccuracy: true });
 
       return () => navigator.geolocation.clearWatch(geoId);
@@ -119,6 +117,22 @@ export function useComplications(arEnabled: boolean) {
     if (window.DeviceMotionEvent && typeof (DeviceMotionEvent as any).requestPermission !== 'function') {
       window.addEventListener('devicemotion', handleMotion);
     }
+
+    let ms: any, ls: any;
+    if ('Magnetometer' in window) {
+      try {
+        ms = new (window as any).Magnetometer({ frequency: 10 });
+        ms.onreading = () => setMag({ x: ms.x, y: ms.y, z: ms.z, total: Math.sqrt(ms.x**2 + ms.y**2 + ms.z**2) });
+        ms.start();
+      } catch {}
+    }
+    if ('AmbientLightSensor' in window) {
+      try {
+        ls = new (window as any).AmbientLightSensor();
+        ls.onreading = () => setLux(ls.illuminance);
+        ls.start();
+      } catch {}
+    }
     
     return () => {
       if (conn) conn.removeEventListener('change', updateNetwork);
@@ -126,36 +140,30 @@ export function useComplications(arEnabled: boolean) {
       window.removeEventListener('offline', updateNetwork);
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('devicemotion', handleMotion);
+      if (ms) ms.stop();
+      if (ls) ls.stop();
     };
   }, []);
 
-  // Weather fetcher (Separate effect to avoid over-fetching on every GPS vibration)
   useEffect(() => {
     if (!coords) return;
-    
     let isMounted = true;
     const fetchWeather = async () => {
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current_weather=true`);
-        if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
         if (isMounted && data.current_weather) {
           setWeather({ temp: data.current_weather.temperature });
         }
-      } catch (err) {
-        // Silent fail for weather to avoid polluting console with fetch errors on flaky networks
-        if (isMounted) console.debug('Weather fetch skipped or failed.');
-      }
+      } catch (err) {}
     };
-
     fetchWeather();
-    const interval = setInterval(fetchWeather, 1000 * 60 * 15); // Every 15 minutes
-    
+    const interval = setInterval(fetchWeather, 1000 * 60 * 15);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
   }, [coords?.lat, coords?.lng]);
 
-  return { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, coords, requestPermissions };
+  return { battery, sunTimes, hasGps, weather, network, tiltRef, heading, altitude, steps, motion, mag, lux, seismoData, coords, requestPermissions };
 }

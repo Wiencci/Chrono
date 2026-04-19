@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Navigation, Target } from 'lucide-react';
 import { motion } from 'motion/react';
+import { formatDecimalDegrees } from '../lib/decimalLogic';
 
 interface WaypointModuleProps {
   baseLocation: { lat: number, lng: number } | null;
@@ -42,7 +43,7 @@ export const WaypointModule: React.FC<WaypointModuleProps> = ({ baseLocation, cu
   const relativeBearing = bearing !== null && heading !== null ? (bearing - heading + 360) % 360 : 0;
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 space-y-6 w-full h-full relative">
+    <div className="flex flex-col items-center justify-center p-4 space-y-6 w-full h-full relative pb-16">
       {!baseLocation ? (
         <div className="text-center space-y-4 py-8">
           <div className="relative">
@@ -99,7 +100,7 @@ export const WaypointModule: React.FC<WaypointModuleProps> = ({ baseLocation, cu
           <div className="grid grid-cols-2 gap-2 w-full max-w-[280px]">
             <div className="bg-white/5 p-2 rounded flex flex-col items-center border border-white/5">
                <span className="text-[7px] uppercase opacity-40">BRG / DEC</span>
-               <span className="text-[10px] font-mono font-bold">{((bearing || 0) / 3.6).toFixed(1)}°D</span>
+               <span className="text-[10px] font-mono font-bold">{formatDecimalDegrees(bearing || 0)}</span>
             </div>
             <div className="bg-white/5 p-2 rounded flex flex-col items-center border border-white/5">
                <span className="text-[7px] uppercase opacity-40">TRK / ERR</span>

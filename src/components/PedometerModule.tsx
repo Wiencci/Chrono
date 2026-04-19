@@ -16,7 +16,7 @@ export const PedometerModule: React.FC<PedometerModuleProps> = ({ steps, themeCo
   const progress = Math.min(steps / goal, 1);
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-8 p-4 w-full h-full">
+    <div className="flex flex-col items-center justify-center space-y-8 p-4 w-full h-full pb-16">
       <div className="relative w-52 h-52 flex items-center justify-center">
         {/* Dynamic Progress Ring */}
         <svg className="absolute inset-0 w-full h-full -rotate-90">

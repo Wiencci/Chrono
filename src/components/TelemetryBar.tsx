@@ -1,4 +1,5 @@
 import React from 'react';
+import { toDecimalHour } from '../lib/decimalLogic';
 import { Battery, BatteryCharging, Thermometer, WifiOff, Wifi, MapPin, Mic, MicOff, Sunrise, Sunset } from 'lucide-react';
 
 interface TelemetryBarProps {
@@ -30,7 +31,7 @@ export const TelemetryBar: React.FC<TelemetryBarProps> = ({
     { id: 'link', icon: network === 'offline' ? WifiOff : Wifi, value: network?.slice(0, 3).toUpperCase() || '---' },
     { id: 'gps', icon: MapPin, value: hasGps ? 'GPS' : 'OFF' },
     { id: 'audio', icon: micEnabled ? Mic : MicOff, value: decibels !== null ? `${decibels}dB` : 'OFF', active: micEnabled, onClick: toggleMic },
-    { id: 'sun', icon: isDay ? Sunset : Sunrise, value: displayMode === 'decimal' ? (isDay ? sunTimes.set / 2.4 : sunTimes.rise / 2.4).toFixed(1) : `${Math.floor(isDay ? sunTimes.set : sunTimes.rise)}h` }
+    { id: 'sun', icon: isDay ? Sunset : Sunrise, value: displayMode === 'decimal' ? (isDay ? toDecimalHour(sunTimes.set) : toDecimalHour(sunTimes.rise)).toFixed(1) : `${Math.floor(isDay ? sunTimes.set : sunTimes.rise)}h` }
   ];
 
   return (
