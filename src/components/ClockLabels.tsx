@@ -25,6 +25,7 @@ interface ClockLabelsProps {
   heading: number | null;
   ui: any;
   isLightMode: boolean;
+  isOverlayModule?: boolean;
 }
 
 const pad = (n: number) => n.toString().padStart(2, '0');
@@ -66,10 +67,11 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
   isScanningBt,
   heading,
   ui,
-  isLightMode
+  isLightMode,
+  isOverlayModule
 }) => {
   return (
-    <svg className="absolute inset-0 w-full h-full z-30 pointer-events-none" viewBox="0 0 400 400">
+    <svg className={`absolute inset-0 w-full h-full z-30 pointer-events-none transition-all duration-500 ${isOverlayModule ? 'opacity-10 scale-95 blur-[2px]' : 'opacity-100'}`} viewBox="0 0 400 400">
       <defs>
         <filter id="glow">
           <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
@@ -96,20 +98,40 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
             </>
           )}
           {appMode === 'stopwatch' && (
-            <>
-              {pad(Math.floor(swTime / 60000))}
-              <tspan>:</tspan>
-              {pad(Math.floor((swTime % 60000) / 1000))}
-              <tspan>.</tspan>
-              <tspan stroke="#555" style={{ filter: 'none' }}>{pad3(swTime % 1000)}</tspan>
-            </>
+            displayMode === 'decimal' ? (
+              <>
+                {pad(Math.floor(swTime / 8640000))}
+                <tspan>:</tspan>
+                {pad(Math.floor((swTime % 8640000) / 86400))}
+                <tspan>.</tspan>
+                <tspan stroke="#555" style={{ filter: 'none' }}>{pad3(Math.floor((swTime % 86400) / 86.4))}</tspan>
+              </>
+            ) : (
+              <>
+                {pad(Math.floor(swTime / 60000))}
+                <tspan>:</tspan>
+                {pad(Math.floor((swTime % 60000) / 1000))}
+                <tspan>.</tspan>
+                <tspan stroke="#555" style={{ filter: 'none' }}>{pad3(swTime % 1000)}</tspan>
+              </>
+            )
           )}
           {appMode === 'timer' && (
-            <>
-              {pad(Math.floor(tmRemaining / 60000))}
-              <tspan className="animate-pulse">:</tspan>
-              {pad(Math.floor((tmRemaining % 60000) / 1000))}
-            </>
+            displayMode === 'decimal' ? (
+              <>
+                {pad(Math.floor(tmRemaining / 8640000))}
+                <tspan className="animate-pulse">:</tspan>
+                {pad(Math.floor((tmRemaining % 8640000) / 86400))}
+                <tspan className="animate-pulse">:</tspan>
+                <tspan style={{ opacity: 0.4 }}>{pad(Math.floor((tmRemaining % 86400) / 864))}</tspan>
+              </>
+            ) : (
+              <>
+                {pad(Math.floor(tmRemaining / 60000))}
+                <tspan className="animate-pulse">:</tspan>
+                {pad(Math.floor((tmRemaining % 60000) / 1000))}
+              </>
+            )
           )}
           {appMode === 'nav' && (heading !== null ? 
             (displayMode === 'decimal' ? `${getDecimalHeading(heading)?.toFixed(1)}°D` : `${Math.round(heading)}°`) 
@@ -125,6 +147,15 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
           {appMode === 'decrypt' && decryptData.chars.slice(0, 6).join('')}
           {appMode === 'water' && 'INTAKE'}
           {appMode === 'sleep' && (isSleeping ? (
+            displayMode === 'decimal' ? (
+              <>
+                {pad(Math.floor((Date.now() - (sleepStart || Date.now())) / 8640000))}
+                <tspan className="animate-pulse">:</tspan>
+                {pad(Math.floor(((Date.now() - (sleepStart || Date.now())) % 8640000) / 86400))}
+                <tspan className="animate-pulse">:</tspan>
+                <tspan stroke="#555" style={{ filter: 'none' }}>{pad(Math.floor(((Date.now() - (sleepStart || Date.now())) % 86400) / 864))}</tspan>
+              </>
+            ) : (
               <>
                 {pad(Math.floor((Date.now() - (sleepStart || Date.now())) / 3600000))}
                 <tspan className="animate-pulse">:</tspan>
@@ -132,9 +163,14 @@ export const ClockLabels: React.FC<ClockLabelsProps> = ({
                 <tspan className="animate-pulse">:</tspan>
                 <tspan stroke="#555" style={{ filter: 'none' }}>{pad(Math.floor(((Date.now() - (sleepStart || Date.now())) % 60000) / 1000))}</tspan>
               </>
-            ) : lastSleepDuration > 0 ? (
+            )
+          ) : lastSleepDuration > 0 ? (
+            displayMode === 'decimal' ? (
+              `${pad(Math.floor(lastSleepDuration / 8640000))}:${pad(Math.floor((lastSleepDuration % 8640000) / 86400))}`
+            ) : (
               `${pad(Math.floor(lastSleepDuration / 3600000))}:${pad(Math.floor((lastSleepDuration % 3600000) / 60000))}`
-            ) : 'RESTING')}
+            )
+          ) : 'RESTING')}
         </textPath>
       </text>
 

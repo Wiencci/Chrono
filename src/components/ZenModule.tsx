@@ -21,19 +21,14 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
       interval = setInterval(() => {
         setTimer((t) => {
           if (t <= 1) {
-            if (phase === 'inspire') {
-                setPhase('hold');
-                return 4;
-            } else if (phase === 'hold') {
-                setPhase('expire');
-                return 4;
-            } else if (phase === 'expire') {
-                setPhase('wait');
-                return 4;
-            } else {
-                setPhase('inspire');
-                return 4;
-            }
+            const sequence: Record<string, typeof phase> = {
+              'inspire': 'hold',
+              'hold': 'expire',
+              'expire': 'wait',
+              'wait': 'inspire'
+            };
+            setPhase(sequence[phase]);
+            return 4;
           }
           return t - 1;
         });
@@ -55,51 +50,81 @@ export const ZenModule: React.FC<ZenModuleProps> = ({ themeColor, ui, speakAI, v
   };
 
   return (
-    <div className="flex flex-col items-center justify-center space-y-4">
+    <div className="flex flex-col items-center justify-center space-y-8 w-full h-full">
       <div 
         onClick={toggleZen}
-        className="relative w-40 h-40 flex items-center justify-center cursor-pointer group"
+        className="relative w-64 h-64 flex items-center justify-center cursor-pointer group"
       >
+        {/* Background Atmospheric Layers */}
         <AnimatePresence>
             {isActive && (
                 <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
+                    initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ 
-                        scale: phase === 'inspire' ? 1.5 : phase === 'expire' ? 0.8 : phase === 'hold' ? 1.5 : 0.8,
-                        opacity: 0.3
+                        scale: phase === 'inspire' || phase === 'hold' ? 1.4 : 0.7,
+                        opacity: phase === 'hold' ? 0.4 : 0.2
                     }}
+                    exit={{ scale: 0.5, opacity: 0 }}
                     transition={{ duration: 4, ease: "easeInOut" }}
                     className="absolute inset-0 rounded-full"
-                    style={{ backgroundColor: themeColor }}
+                    style={{ backgroundColor: themeColor, filter: 'blur(40px)' }}
                 />
             )}
         </AnimatePresence>
 
+        {/* Pulse Ring */}
+        <motion.div 
+           animate={{ 
+             scale: isActive ? [1, 1.1, 1] : 1,
+             opacity: isActive ? [0.1, 0.3, 0.1] : 0.05
+           }}
+           transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+           className="absolute inset-0 border-2 rounded-full"
+           style={{ borderColor: themeColor }}
+        />
+
         <div 
-            className={`relative z-10 w-24 h-24 rounded-full border-2 flex flex-col items-center justify-center transition-all duration-700 ${isActive ? 'border-opacity-100 animate-pulse' : 'border-opacity-20'}`}
+            className={`relative z-10 w-32 h-32 rounded-full border flex flex-col items-center justify-center transition-all duration-1000 ${isActive ? 'bg-black/40 border-opacity-100' : 'bg-white/5 border-opacity-10'}`}
             style={{ 
                 borderColor: themeColor,
-                boxShadow: isActive ? `0 0 30px ${themeColor}40` : 'none'
+                boxShadow: isActive ? `0 0 40px ${themeColor}20` : 'none'
             }}
         >
-          {isActive ? (
-            <>
-                <Wind size={24} style={{ color: themeColor }} className={phase === 'inspire' ? 'animate-bounce' : ''} />
-                <span className="text-[10px] mt-1 font-bold" style={{ color: themeColor }}>{phase.toUpperCase()}</span>
-                <span className="text-lg font-mono" style={{ color: ui.textMain }}>{timer}</span>
-            </>
-          ) : (
-            <>
-                <UserCheck size={24} style={{ color: ui.textVeryMuted }} />
-                <span className="text-[8px] mt-1 opacity-40 uppercase tracking-widest text-center" style={{ color: ui.textMain }}>Inicie Protocolo</span>
-            </>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={phase + isActive}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="flex flex-col items-center"
+            >
+              {isActive ? (
+                <>
+                  <Wind size={24} style={{ color: themeColor }} className="mb-2 opacity-80" />
+                  <span className="text-[10px] font-bold tracking-[0.3em]" style={{ color: themeColor }}>{phase.toUpperCase()}</span>
+                  <span className="text-3xl font-mono font-black" style={{ color: ui.textMain }}>{timer}</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 size={24} className="opacity-20 mb-2" />
+                  <span className="text-[8px] opacity-40 uppercase tracking-[0.2em] font-bold text-center">Protocolo Zen</span>
+                  <span className="text-[7px] opacity-30 uppercase mt-1">Clique para Iniciar</span>
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
       <div className="text-center space-y-1">
-        <h3 className="text-[8px] uppercase tracking-[0.3em] font-bold" style={{ color: themeColor }}>Módulo Zen v1.0</h3>
-        <p className="text-[7px] opacity-60 uppercase" style={{ color: ui.textMain }}>Frequência Delta Ativa</p>
+        <div className="flex items-center justify-center space-x-4 opacity-20">
+           <div className={`w-8 h-[1px] ${phase === 'inspire' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
+           <div className={`w-8 h-[1px] ${phase === 'hold' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
+           <div className={`w-8 h-[1px] ${phase === 'expire' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
+           <div className={`w-8 h-[1px] ${phase === 'wait' ? 'opacity-100' : 'opacity-30'}`} style={{ backgroundColor: themeColor }} />
+        </div>
+        <p className="text-[8px] uppercase tracking-[0.4em] font-bold pt-4" style={{ color: themeColor }}>Frequência Delta Ativa</p>
+        <p className="text-[7px] opacity-40 uppercase tracking-widest">Estabilização neural em curso</p>
       </div>
     </div>
   );

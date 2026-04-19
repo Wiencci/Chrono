@@ -10,61 +10,80 @@ interface LevelModuleProps {
 
 export const LevelModule: React.FC<LevelModuleProps> = ({ motion: m, themeColor, ui }) => {
   // Normalize values for visualization
-  // Gravity is ~9.8 on Z when flat. 
-  // Let's use x and y for tilt.
-  const tiltX = m.x * 5; // Scaling for effect
-  const tiltY = m.y * 5;
+  const tiltX = m.x * 6; 
+  const tiltY = m.y * 6;
+  const rollAngle = (m.x * 3);
 
   const isLevel = Math.abs(m.x) < 0.2 && Math.abs(m.y) < 0.2;
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 space-y-6">
-      <div className="relative w-48 h-48 border-2 rounded-full flex items-center justify-center" style={{ borderColor: ui.dividerBorder }}>
-        {/* Crosshair */}
-        <div className="absolute w-full h-[1px] bg-white opacity-10" />
-        <div className="absolute h-full w-[1px] bg-white opacity-10" />
-        
-        {/* Target Circle */}
-        <div className="w-8 h-8 border-2 rounded-full z-0" style={{ borderColor: themeColor, opacity: 0.3 }} />
+    <div className="flex flex-col items-center justify-center p-4 space-y-4 w-full">
+      <div className="relative w-56 h-56 rounded-full overflow-hidden border border-white/5 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+        {/* Dynamic Horizon Line */}
+        <motion.div 
+          animate={{ rotate: -rollAngle, y: tiltY * 1.5 }}
+          className="absolute w-[200%] h-[1px] opacity-20"
+          style={{ backgroundColor: themeColor }}
+        />
 
-        {/* Level Bubble */}
+        {/* Static Grid */}
+        <div className="absolute inset-4 border border-dashed rounded-full opacity-5" style={{ borderColor: themeColor }} />
+        <div className="absolute w-full h-[1px] bg-white/5" />
+        <div className="absolute h-full w-[1px] bg-white/5" />
+        
+        {/* Pitch Indicators */}
+        <div className="absolute flex flex-col items-center justify-center space-y-4 opacity-10">
+          {[-20, -10, 0, 10, 20].map(p => (
+            <div key={p} className="flex flex-col items-center">
+               <div className="w-12 h-[1px] bg-white" />
+               <span className="text-[6px] mt-0.5">{p}°</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Level Bubble (Indicator) */}
         <motion.div 
           animate={{ x: tiltX, y: tiltY }}
-          transition={{ type: 'spring', damping: 20 }}
-          className="absolute w-6 h-6 rounded-full shadow-lg z-10"
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="absolute w-10 h-10 border-2 rounded-full z-20 flex items-center justify-center"
           style={{ 
-            backgroundColor: isLevel ? themeColor : '#ff003c',
-            boxShadow: `0 0 20px ${isLevel ? themeColor : '#ff003c'}80` 
+            borderColor: isLevel ? themeColor : '#ff003c',
+            boxShadow: `0 0 15px ${isLevel ? themeColor : '#ff003c'}40`,
+            backgroundColor: `${isLevel ? themeColor : '#ff003c'}10`
           }}
         >
-          <div className="absolute top-1 left-1 w-2 h-2 bg-white opacity-40 rounded-full" />
+          <div className="w-1 h-1 rounded-full bg-white opacity-80" />
         </motion.div>
 
-        {/* Precision Rings */}
-        <div className="absolute w-24 h-24 border rounded-full opacity-5" style={{ borderColor: themeColor }} />
+        {/* Fixed Center Reticle */}
+        <div className="absolute w-4 h-4 border border-white opacity-20 rounded-sm rotate-45" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 w-full text-center">
-        <div className="space-y-1">
-          <p className="text-[8px] uppercase tracking-widest opacity-50" style={{ color: ui.textMain }}>Pitch (X)</p>
-          <p className="text-sm font-mono" style={{ color: ui.textMain }}>{(m.x * (100 / 90)).toFixed(1)}°D</p>
+      <div className="flex justify-between w-full max-w-[200px] border-t pt-4" style={{ borderColor: ui.dividerBorder }}>
+        <div className="text-left">
+          <p className="text-[7px] uppercase tracking-widest opacity-40">Pitch / Dev</p>
+          <p className="text-xs font-mono font-bold" style={{ color: ui.textMain }}>{(m.x * (100 / 90)).toFixed(2)}°D</p>
         </div>
-        <div className="space-y-1">
-          <p className="text-[8px] uppercase tracking-widest opacity-50" style={{ color: ui.textMain }}>Roll (Y)</p>
-          <p className="text-sm font-mono" style={{ color: ui.textMain }}>{(m.y * (100 / 90)).toFixed(1)}°D</p>
+        <div className="text-right">
+          <p className="text-[7px] uppercase tracking-widest opacity-40">Roll / Dev</p>
+          <p className="text-xs font-mono font-bold" style={{ color: ui.textMain }}>{(m.y * (100 / 90)).toFixed(2)}°D</p>
         </div>
       </div>
 
-      {isLevel && (
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-[10px] font-bold uppercase tracking-[0.3em]"
-          style={{ color: themeColor }}
-        >
-          SISTEMA NIVELADO
-        </motion.p>
-      )}
+      <div className="h-4 flex items-center justify-center">
+        {isLevel ? (
+          <motion.div 
+             initial={{ opacity: 0 }} 
+             animate={{ opacity: 1 }} 
+             className="flex items-center space-x-2"
+          >
+            <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: themeColor }} />
+            <span className="text-[9px] font-bold uppercase tracking-[0.4em]" style={{ color: themeColor }}>Status: Nominal</span>
+          </motion.div>
+        ) : (
+          <span className="text-[8px] uppercase tracking-widest opacity-30">Calibration Active</span>
+        )}
+      </div>
     </div>
   );
 };

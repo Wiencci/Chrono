@@ -129,14 +129,27 @@ export default function App() {
       offsetSecs = circSecs - (now.getSeconds() / 60) * circSecs;
     }
   } else if (appMode === 'stopwatch') {
-    offsetHours = circHours - (((swTime / 60000) % 60) / 60) * circHours;
-    offsetMins = circMins - (((swTime / 1000) % 60) / 60) * circMins;
-    offsetSecs = circSecs - ((swTime % 1000) / 1000) * circSecs;
+    if (displayMode === 'decimal') {
+      const swDecSeconds = swTime / 864;
+      offsetHours = circHours - ((swDecSeconds / 10000) % 1) * circHours;
+      offsetMins = circMins - ((swDecSeconds / 100) % 1) * circMins;
+      offsetSecs = circSecs - (swDecSeconds % 1) * circSecs;
+    } else {
+      offsetHours = circHours - (((swTime / 60000) % 60) / 60) * circHours;
+      offsetMins = circMins - (((swTime / 1000) % 60) / 60) * circMins;
+      offsetSecs = circSecs - ((swTime % 1000) / 1000) * circSecs;
+    }
   } else if (appMode === 'timer') {
     const progress = tmDuration > 0 ? tmRemaining / tmDuration : 0;
     offsetHours = circHours - progress * circHours;
-    offsetMins = circMins - ((tmRemaining % 60000) / 60000) * circMins;
-    offsetSecs = circSecs;
+    if (displayMode === 'decimal') {
+      const tmRemDecSeconds = tmRemaining / 864;
+      offsetMins = circMins - ((tmRemDecSeconds / 100) % 1) * circMins;
+      offsetSecs = circSecs - (tmRemDecSeconds % 1) * circSecs;
+    } else {
+      offsetMins = circMins - ((tmRemaining % 60000) / 60000) * circMins;
+      offsetSecs = circSecs;
+    }
   } else if (appMode === 'speed') {
     const speedKmh = (speedData.speed || 0) * 3.6;
     const maxSpeedKmh = speedData.maxSpeed * 3.6;
@@ -144,6 +157,8 @@ export default function App() {
     offsetMins = circMins - (maxSpeedKmh > 0 ? Math.min(speedKmh / maxSpeedKmh, 1) : 0) * circMins;
     offsetSecs = circSecs;
   }
+
+  const isOverlayModule = ['level', 'altimeter', 'nav', 'zen', 'symbols', 'steps'].includes(appMode);
 
   return (
     <div className={`min-h-screen ${ui.bgApp} flex flex-col items-center justify-center ${ui.textMain} font-['Share_Tech_Mono',_monospace] selection:bg-white selection:text-black p-4 overflow-hidden transition-colors duration-1000 relative`}>
@@ -207,7 +222,7 @@ export default function App() {
           
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800 via-[#0a0a0a] to-[#000] rounded-full" />
 
-          <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none" viewBox="0 0 400 400">
+          <svg className={`absolute inset-0 w-full h-full z-10 pointer-events-none transition-opacity duration-500 ${isOverlayModule ? 'opacity-10' : 'opacity-100'}`} viewBox="0 0 400 400">
             {Array.from({ length: (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60 }).map((_, i) => {
               const total = (appMode === 'clock' && displayMode === 'decimal') ? 100 : 60;
               const angle = (i / total) * 360;
@@ -241,6 +256,7 @@ export default function App() {
             waterIntake={waterIntake}
             waterGoal={2000}
             isSleeping={isSleeping}
+            isOverlayModule={isOverlayModule}
           />
 
           {appMode === 'zen' && (
@@ -333,6 +349,7 @@ export default function App() {
             heading={heading}
             ui={ui}
             isLightMode={isLightMode}
+            isOverlayModule={isOverlayModule}
           />
 
           {appMode === 'stopwatch' && (

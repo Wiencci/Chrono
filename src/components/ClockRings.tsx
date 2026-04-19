@@ -29,6 +29,7 @@ interface ClockRingsProps {
   waterIntake: number;
   waterGoal: number;
   isSleeping: boolean;
+  isOverlayModule?: boolean;
 }
 
 export const ClockRings: React.FC<ClockRingsProps> = ({
@@ -43,12 +44,13 @@ export const ClockRings: React.FC<ClockRingsProps> = ({
   isScanningBt,
   waterIntake,
   waterGoal,
-  isSleeping
+  isSleeping,
+  isOverlayModule
 }) => {
   const { radiusHours, radiusMins, radiusSecs, circHours, circMins, circSecs, offsetHours, offsetMins, offsetSecs } = rings;
 
   return (
-    <svg className="absolute inset-0 w-full h-full transform -rotate-90 z-20 pointer-events-none" viewBox="0 0 400 400">
+    <svg className={`absolute inset-0 w-full h-full transform -rotate-90 z-20 pointer-events-none transition-opacity duration-500 ${isOverlayModule ? 'opacity-20 scale-95' : 'opacity-100'}`} viewBox="0 0 400 400">
       {/* Outer Ring */}
       <circle cx="200" cy="200" r={radiusHours} fill="none" stroke={ui.ringBg} strokeWidth="8" style={{ transition: 'stroke 1s ease' }} />
       <circle cx="200" cy="200" r={radiusHours} fill="none" stroke={themeColor} strokeWidth="8" strokeLinecap="round"

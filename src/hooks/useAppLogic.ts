@@ -231,16 +231,24 @@ export function useAppLogic() {
 
   const addMissionLog = (text: string) => {
     if (!text.trim()) return;
+    
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const timeNow = new Date();
+    const dt = getDecimalTime(timeNow);
+    
+    const timeStr = displayMode === 'decimal' 
+      ? `${pad(dt.hours)}:${pad(dt.minutes)}:${pad(dt.seconds)}`
+      : timeNow.toLocaleTimeString();
+    
     const newLog = {
       id: Date.now(),
       text,
-      time: new Date().toLocaleTimeString()
+      time: timeStr
     };
     setMissionLogs(prev => [newLog, ...prev].slice(0, 50));
     vibrate();
     if (soundEnabled) soundEngine.playTick();
   };
-
   const clearLogs = () => {
     setMissionLogs([]);
     vibrate();
@@ -332,7 +340,10 @@ export function useAppLogic() {
   }, [now.getSeconds(), voiceEnabled]);
 
   const handleCenterClick = () => {
-    if (appMode === 'clock') toggleMode();
+    if (appMode === 'clock') {
+      toggleMode();
+      if (voiceEnabled) speakTime();
+    }
     else if (appMode === 'stopwatch') toggleStopwatch();
     else if (appMode === 'timer') toggleTimer();
     else if (appMode === 'speed') resetMaxSpeed();
@@ -352,9 +363,6 @@ export function useAppLogic() {
         setIsSleeping(true);
         setSleepStart(Date.now());
       }
-    }
-    else if (appMode === 'clock') {
-        speakTime();
     }
     else if (appMode === 'nav') {
       if (hasGps) {
